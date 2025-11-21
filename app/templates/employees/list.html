@@ -1,0 +1,112 @@
+<!-- Path: app/templates/employees/list.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800">Employee Directory</h2>
+        <p class="text-gray-500 text-sm mt-1">Manage staff and view asset allocations.</p>
+    </div>
+    <button onclick="document.getElementById('addEmployeeModal').classList.remove('hidden')" class="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-lg shadow-md transition-all flex items-center">
+        <i class="fas fa-user-plus mr-2"></i> Add Employee
+    </button>
+</div>
+
+<!-- Real-time Search Bar & Filters -->
+<div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4 items-center">
+    <div class="relative flex-grow">
+        <i class="fas fa-search absolute left-3 top-3.5 text-gray-400 text-lg"></i>
+        <input type="text" id="employeeSearch" placeholder="Search by Name, Emp ID, Branch, or Asset Serial..." 
+               class="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand transition-all text-gray-700 shadow-sm">
+    </div>
+    <div class="w-48">
+        <select id="employeeStatusFilter" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand bg-white">
+            <option value="Active" {% if current_status == 'Active' %}selected{% endif %}>Active Only</option>
+            <option value="Inactive" {% if current_status == 'Inactive' %}selected{% endif %}>Inactive Only</option>
+            <option value="All" {% if current_status == 'All' %}selected{% endif %}>All Employees</option>
+        </select>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+    <table class="min-w-full leading-normal">
+        <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ID</th>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Branch</th>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Assets Holding</th>
+                <th class="px-5 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="employeeTableBody">
+            {% include 'employees/_table_rows.html' %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ADD EMPLOYEE MODAL -->
+<div id="addEmployeeModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 overflow-y-auto h-full w-full z-40 flex items-center justify-center backdrop-blur-sm">
+    <div class="relative p-6 border w-96 shadow-2xl rounded-xl bg-white">
+        <div class="flex justify-between items-center mb-5">
+            <h3 class="text-xl font-bold text-gray-800">Add New Employee</h3>
+            <button onclick="document.getElementById('addEmployeeModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <form action="{{ url_for('employees.add_employee') }}" method="POST">
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-600 mb-1">Full Name</label>
+                <input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="name" required>
+            </div>
+            
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-600 mb-1">Employee ID</label>
+                <input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="emp_id" placeholder="e.g. EMP001" required>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-gray-600 mb-1">Branch</label>
+                <select class="w-full border p-2 rounded focus:ring-brand focus:border-brand" name="branch_id" required>
+                    <option value="" disabled selected>Select Branch</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}">{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex justify-end space-x-2 border-t pt-4">
+                <button type="button" onclick="document.getElementById('addEmployeeModal').classList.add('hidden')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-brand text-white rounded hover:bg-brand-dark font-medium shadow-lg shadow-orange-200">Save Employee</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // REAL-TIME SEARCH & FILTER LOGIC
+    const searchInput = document.getElementById('employeeSearch');
+    const statusFilter = document.getElementById('employeeStatusFilter');
+    const tableBody = document.getElementById('employeeTableBody');
+    let timeout = null;
+
+    function fetchEmployees() {
+        const searchTerm = searchInput.value;
+        const status = statusFilter.value;
+        
+        fetch(`{{ url_for('employees.list_employees') }}?search=${encodeURIComponent(searchTerm)}&status=${status}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.text())
+        .then(html => {
+            tableBody.innerHTML = html;
+        })
+        .catch(err => console.error('Error:', err));
+    }
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(fetchEmployees, 300);
+    });
+
+    statusFilter.addEventListener('change', fetchEmployees);
+</script>
+{% endblock %}

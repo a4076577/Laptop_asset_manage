@@ -1,0 +1,47 @@
+<!-- Path: app/templates/employees/_table_rows.html -->
+{% if not employees %}
+<tr>
+    <td colspan="5" class="px-5 py-8 text-center text-gray-500">
+        <i class="fas fa-users-slash text-4xl mb-2 text-gray-300"></i><br>
+        No employees found matching your search.
+    </td>
+</tr>
+{% endif %}
+
+{% for emp in employees %}
+<tr class="border-b hover:bg-orange-50 transition-all group">
+    <td class="px-5 py-4 text-sm font-mono font-bold text-brand-dark">
+        {{ emp.emp_id }}
+    </td>
+    <td class="px-5 py-4 text-sm">
+        <div class="font-bold text-gray-800">{{ emp.name }}</div>
+        <div class="text-xs text-gray-500">{{ emp.status }}</div>
+    </td>
+    <td class="px-5 py-4 text-sm text-gray-600">
+        <i class="fas fa-building text-gray-300 mr-1"></i>
+        {{ emp.branch.name if emp.branch else 'Unassigned' }}
+    </td>
+    <td class="px-5 py-4 text-sm">
+        {% if emp.assets_holding %}
+            <div class="flex flex-col gap-1">
+                {% for asset in emp.assets_holding %}
+                <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="flex items-center bg-white border border-gray-200 rounded px-2 py-1 hover:border-brand hover:text-brand transition-colors w-fit">
+                    <i class="fas fa-laptop text-xs mr-2 text-gray-400"></i>
+                    <div>
+                        <div class="text-xs font-bold">{{ asset.serial_number }}</div>
+                        <div class="text-[10px] text-gray-500 leading-none">{{ asset.model }}</div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <span class="text-gray-400 text-xs italic">No assets assigned</span>
+        {% endif %}
+    </td>
+    <td class="px-5 py-4 text-sm text-right">
+        <a href="{{ url_for('employees.detail', emp_id=emp.id) }}" class="text-brand hover:text-brand-dark font-bold opacity-0 group-hover:opacity-100 transition-all">
+            View History <i class="fas fa-arrow-right ml-1"></i>
+        </a>
+    </td>
+</tr>
+{% endfor %}

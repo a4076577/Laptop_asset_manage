@@ -1,0 +1,117 @@
+<!-- Path: app/templates/employees/detail.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center mb-6">
+    <a href="{{ url_for('employees.list_employees') }}" class="text-gray-500 hover:text-brand mr-4"><i class="fas fa-arrow-left"></i> Back</a>
+    <h2 class="text-2xl font-bold text-gray-800">Employee Profile</h2>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- LEFT: PROFILE & STATUS -->
+    <div class="col-span-1 space-y-6">
+        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 {% if employee.status == 'Active' %}border-brand{% else %}border-gray-400{% endif %}">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">{{ employee.name }}</h2>
+                    <div class="text-sm text-gray-500 font-mono">{{ employee.emp_id }}</div>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold 
+                    {% if employee.status == 'Active' %}bg-green-100 text-green-800{% else %}bg-gray-200 text-gray-600{% endif %}">
+                    {{ employee.status }}
+                </span>
+            </div>
+            <div class="mt-4 flex items-center text-gray-600">
+                <i class="fas fa-building mr-2 text-gray-400"></i> {{ employee.branch.name if employee.branch else 'No Branch' }}
+            </div>
+        </div>
+
+        <!-- STATUS ACTIONS -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Status Management</h3>
+            
+            {% if employee.status == 'Active' %}
+                <p class="text-xs text-gray-500 mb-4">
+                    Marking an employee as inactive requires all assets to be returned first.
+                </p>
+                <form action="{{ url_for('employees.resign_employee') }}" method="POST" onsubmit="return confirm('Are you sure you want to mark this employee as Resigned/Inactive?');">
+                    <input type="hidden" name="emp_id" value="{{ employee.id }}">
+                    {% if current_assets %}
+                        <div class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded mb-3 text-sm">
+                            <i class="fas fa-exclamation-triangle mr-1"></i> Cannot resign: {{ current_assets|length }} assets assigned.
+                        </div>
+                        <button type="button" disabled class="w-full bg-gray-300 text-white py-2 rounded cursor-not-allowed">Mark as Resigned</button>
+                    {% else %}
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded transition-all shadow-md">Mark as Resigned / Inactive</button>
+                    {% endif %}
+                </form>
+            {% else %}
+                <p class="text-xs text-gray-500 mb-4">
+                    Re-activate this employee to allow asset allocation.
+                </p>
+                <form action="{{ url_for('employees.activate_employee') }}" method="POST">
+                    <input type="hidden" name="emp_id" value="{{ employee.id }}">
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded transition-all shadow-md">Re-Activate Employee</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- RIGHT: ASSETS & HISTORY -->
+    <div class="col-span-1 lg:col-span-2 space-y-6">
+        
+        <!-- CURRENT ASSETS -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="font-bold text-lg mb-4 text-brand flex items-center">
+                <i class="fas fa-laptop mr-2"></i> Currently Holding
+            </h3>
+            {% if current_assets %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for asset in current_assets %}
+                    <div class="border border-gray-200 p-4 rounded-lg hover:border-brand transition-colors flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-gray-800">{{ asset.brand }} {{ asset.model }}</div>
+                            <div class="text-xs font-mono text-gray-500">{{ asset.serial_number }}</div>
+                        </div>
+                        <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="text-brand hover:text-brand-dark text-sm font-bold">View</a>
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <p class="text-gray-400 italic">No assets currently assigned.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- HISTORY -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="font-bold text-lg mb-4 text-gray-700 flex items-center">
+                <i class="fas fa-history mr-2"></i> Assignment History
+            </h3>
+            <div class="space-y-4">
+                {% for event in history %}
+                <div class="text-sm border-b pb-3 last:border-0">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold {% if event.action=='Allocation' %}text-green-600{% elif event.action=='Return' %}text-blue-600{% else %}text-gray-600{% endif %}">
+                            {{ event.action }}
+                        </span> 
+                        <span class="text-gray-400 text-xs">{{ event.timestamp.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                    <div class="text-gray-800 font-medium">
+                        Asset: <a href="{{ url_for('assets.detail', asset_id=event.asset.id) }}" class="hover:text-brand underline">{{ event.asset.brand }} {{ event.asset.model }}</a>
+                        <span class="text-gray-400 text-xs font-mono ml-1">({{ event.asset.serial_number }})</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1 flex justify-between">
+                        <span>{{ event.from_detail }} <i class="fas fa-arrow-right mx-1 text-gray-300"></i> {{ event.to_detail }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if not history %}
+                    <p class="text-gray-400 italic">No history records found.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

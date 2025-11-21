@@ -1,0 +1,77 @@
+<!-- Path: app/templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AssetTrack Pro{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Brand Color -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            DEFAULT: '#FF9105', // The requested RGB(255,145,5)
+                            dark: '#e68200',
+                            light: '#ffad42'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <style>
+        /* Smooth transitions */
+        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 200ms; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+    {% if current_user.is_authenticated %}
+    <nav class="bg-brand text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center py-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white text-brand p-2 rounded-full shadow-sm">
+                    <i class="fas fa-laptop-code text-xl"></i>
+                </div>
+                <span class="text-xl font-bold tracking-wide">AssetTrack Pro</span>
+            </div>
+            <div class="flex space-x-1 items-center bg-brand-dark rounded-lg p-1">
+                <a href="{{ url_for('main.dashboard') }}" class="px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:text-brand transition-all">Dashboard</a>
+                <a href="{{ url_for('assets.list_assets') }}" class="px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:text-brand transition-all">Assets</a>
+                <a href="{{ url_for('employees.list_employees') }}" class="px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:text-brand transition-all">Employees</a>
+                <a href="{{ url_for('auth.manage_users') }}" class="px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:text-brand transition-all">Users</a>
+            </div>
+            <div class="flex items-center space-x-3 ml-4">
+                <div class="text-right hidden md:block">
+                    <div class="text-xs text-orange-100 uppercase font-bold">Logged in as</div>
+                    <div class="text-sm font-bold">{{ current_user.name }}</div>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="bg-white text-brand hover:bg-gray-100 px-3 py-2 rounded-full shadow-sm transition-all" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="flex-grow container mx-auto px-4 py-8">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="fixed top-4 right-4 z-50 w-96">
+                {% for category, message in messages %}
+                <div class="p-4 mb-3 rounded-lg shadow-lg flex items-center justify-between {{ 'bg-green-100 text-green-800 border-l-4 border-green-500' if category=='success' else 'bg-red-100 text-red-800 border-l-4 border-red-500' }}">
+                    <p class="font-medium text-sm">{{ message }}</p>
+                    <button onclick="this.parentElement.remove()" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times"></i></button>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

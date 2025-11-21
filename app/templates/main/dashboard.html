@@ -1,0 +1,29 @@
+<!-- Path: app/templates/main/dashboard.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+    {% for label, count in stats.items() %}
+    <div class="bg-white p-6 rounded-lg shadow border-t-4 border-indigo-500">
+        <h3 class="text-gray-500 text-sm uppercase">{{ label }}</h3>
+        <p class="text-3xl font-bold">{{ count }}</p>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="bg-white rounded-lg shadow p-6">
+    <h3 class="text-xl font-bold mb-4 border-b pb-2">Recent Activity</h3>
+    <ul class="space-y-4">
+        {% for log in recent_activity %}
+        <li class="flex items-start space-x-3 text-sm">
+            <div class="bg-gray-100 p-2 rounded-full"><i class="fas fa-history text-gray-500"></i></div>
+            <div>
+                <span class="font-semibold text-indigo-600">{{ log.action }}</span>: 
+                Asset <span class="font-mono bg-gray-100 px-1">{{ log.asset.serial_number }}</span>
+                moved from <span class="font-semibold">{{ log.from_detail }}</span> to <span class="font-semibold">{{ log.to_detail }}</span>
+                <div class="text-gray-400 text-xs">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}
