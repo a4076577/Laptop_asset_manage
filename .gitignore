@@ -1,0 +1,23 @@
+# Environment
+.env
+
+# Databases
+instance/
+*.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Logs
+*.log
+
+# Gunicorn socket
+*.sock
+
+# OS files
+Thumbs.db
+.DS_Store
