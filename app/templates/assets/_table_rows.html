@@ -32,19 +32,32 @@
     </td>
     <td class="px-5 py-4 text-sm">
         {% if asset.holder %}
-            <div class="flex items-center text-gray-800 font-semibold">
+            <a href="{{ url_for('employees.detail', emp_id=asset.holder.id) }}" class="flex items-center text-gray-800 font-semibold hover:text-brand">
                 <div class="w-6 h-6 rounded-full bg-brand-light text-white flex items-center justify-center text-xs mr-2">
                     {{ asset.holder.name[0] }}
                 </div>
                 {{ asset.holder.name }}
-            </div>
+            </a>
         {% else %}
             <span class="text-gray-400">-</span>
         {% endif %}
     </td>
     <td class="px-5 py-4 text-sm text-right flex justify-end items-center space-x-2">
+        
+        <!-- QR ACTION -->
+        {% if asset.qr_code_hash %}
+            <button onclick="showQR('{{ asset.qr_code_hash }}')" class="text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 px-2 py-1 rounded border border-gray-300" title="View QR">
+                <i class="fas fa-qrcode"></i>
+            </button>
+        {% else %}
+            <form action="{{ url_for('qr.generate', asset_id=asset.id) }}" method="POST" style="display:inline;">
+                <button type="submit" class="text-xs bg-green-50 text-green-600 hover:bg-green-100 px-2 py-1 rounded border border-green-200" title="Generate QR">
+                    <i class="fas fa-plus-square"></i>
+                </button>
+            </form>
+        {% endif %}
+
         {% if asset.status == 'In Stock' %}
-            <!-- SHORTCUT BUTTONS -->
             <button onclick="openTransferModal('{{ asset.id }}', '{{ asset.serial_number }}')" class="bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white p-2 rounded transition-colors" title="Change Branch">
                 <i class="fas fa-exchange-alt"></i>
             </button>

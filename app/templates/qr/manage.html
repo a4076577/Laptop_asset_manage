@@ -1,0 +1,237 @@
+<!-- Path: app/templates/qr/manage.html -->
+{% extends "base.html" %}
+{% block content %}
+
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800">QR Code Manager</h2>
+        <p class="text-gray-500 text-sm mt-1">Generate, manage, and print asset tags.</p>
+    </div>
+    
+    <div class="flex gap-3">
+        {% if current_user.email == 'admin@company.com' %}
+        <a href="{{ url_for('qr.scan_history') }}" class="flex items-center bg-white border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 shadow-sm">
+            <i class="fas fa-list-alt mr-2"></i> Scan History
+        </a>
+        
+        <div class="flex items-center bg-gray-100 p-2 rounded-lg border border-gray-300">
+            <span class="text-xs font-bold text-gray-500 uppercase mr-3">Global Scan</span>
+            <form action="{{ url_for('admin.toggle_global_scan') }}" method="POST">
+                <button class="px-4 py-1 rounded text-xs font-bold transition-colors shadow-sm
+                    {% if global_scan_enabled %}bg-green-500 text-white hover:bg-green-600{% else %}bg-red-500 text-white hover:bg-red-600{% endif %}">
+                    {% if global_scan_enabled %}ON{% else %}OFF{% endif %}
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TABS -->
+<div class="flex gap-4 mb-6 border-b border-gray-200">
+    <button onclick="switchTab('assigned')" id="tab-assigned" class="px-4 py-2 font-bold text-brand border-b-2 border-brand transition-all">Assigned Assets</button>
+    <button onclick="switchTab('unassigned')" id="tab-unassigned" class="px-4 py-2 text-gray-500 hover:text-brand transition-all">Unassigned Stickers</button>
+</div>
+
+<!-- ... [Rest of file identical to previous version] ... -->
+<!-- (Paste the Print Modal, View Assigned, View Unassigned, and Script sections from the previous 'QR Manager' response here) -->
+<!-- PRINT SETTINGS MODAL (New) -->
+<div id="printSettingsModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center" onclick="closePrintModal()">
+    <div class="bg-white p-6 rounded-xl max-w-sm w-full" onclick="event.stopPropagation()">
+        <h3 class="text-lg font-bold mb-4 text-gray-800 border-b pb-2">Print Configuration</h3>
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Start Position (Skip Used)</label>
+                <input type="number" id="modal_start_pos" value="1" min="1" max="24" class="w-full border p-2 rounded text-sm">
+                <p class="text-xs text-gray-400 mt-1">Leave 0 to start at top-left.</p>
+            </div>
+            <div class="flex gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Columns</label>
+                    <input type="number" id="modal_cols" value="3" min="1" max="10" class="w-full border p-2 rounded text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Rows</label>
+                    <input type="number" id="modal_rows" value="8" min="1" max="20" class="w-full border p-2 rounded text-sm">
+                </div>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2">
+            <button onclick="closePrintModal()" class="px-4 py-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 text-sm">Cancel</button>
+            <button onclick="confirmPrint()" class="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900 text-sm shadow-lg">Print Now</button>
+        </div>
+    </div>
+</div>
+
+<div id="view-assigned">
+    <div class="bg-white p-5 rounded-xl shadow-md border border-gray-100 mb-6">
+        <form action="{{ url_for('qr.print_stickers') }}" method="POST" target="_blank" id="qrForm">
+            <input type="hidden" name="start_position" id="form_start_pos">
+            <input type="hidden" name="grid_columns" id="form_cols">
+            <input type="hidden" name="grid_rows" id="form_rows">
+            <div class="flex flex-wrap gap-4 mb-6 border-b pb-6 items-end">
+                <div class="w-1/3">
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Filter Branch</label>
+                    <select name="branch_filter" onchange="applyFilters()" class="w-full border p-2 rounded bg-gray-50">
+                        <option value="">All Branches</option>
+                        {% for b in branches %}
+                        <option value="{{ b.id }}" {% if request.args.get('branch_id')|int == b.id %}selected{% endif %}>{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="w-1/3">
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Filter Status</label>
+                    <select name="status_filter" onchange="applyFilters()" class="w-full border p-2 rounded bg-gray-50">
+                        <option value="All">All Statuses</option>
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex-grow text-right">
+                     <button type="button" onclick="openPrintModal()" class="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2 rounded-lg shadow flex items-center ml-auto">
+                        <i class="fas fa-print mr-2"></i> Print Selected
+                    </button>
+                </div>
+            </div>
+            <div class="mt-6 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <table class="min-w-full leading-normal">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-5 py-3 text-left w-10"><input type="checkbox" onclick="toggleAll(this)"></th>
+                            <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Asset</th>
+                            <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                            <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">QR Status</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold text-gray-500 uppercase">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in assets %}
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-5 py-4"><input type="checkbox" name="asset_ids" value="{{ asset.id }}"></td>
+                            <td class="px-5 py-4 text-sm">
+                                <div class="font-bold text-gray-800">{{ asset.serial_number }}</div>
+                                <div class="text-xs text-gray-500">{{ asset.brand }} {{ asset.model }}</div>
+                            </td>
+                            <td class="px-5 py-4 text-sm">
+                                <span class="px-2 py-1 rounded text-xs border {% if asset.status == 'Retired' %}bg-gray-100 border-gray-300 text-gray-600 {% elif asset.status == 'Allocated' %}bg-green-50 border-green-200 text-green-700 {% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">{{ asset.status }}</span>
+                            </td>
+                            <td class="px-5 py-4 text-sm">
+                                {% if asset.qr_code_hash %}
+                                    <span class="text-green-600 font-bold text-xs"><i class="fas fa-check-circle"></i> Active</span>
+                                    {% if not asset.is_qr_active %}
+                                    <span class="text-red-600 text-xs ml-1">(Disabled)</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-gray-400 text-xs">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-4 text-sm text-right">
+                                {% if asset.qr_code_hash %}
+                                    <button type="button" onclick="toggleQR('{{ asset.id }}')" class="text-brand hover:underline text-xs font-bold">Toggle</button>
+                                {% else %}
+                                    <button type="submit" form="genForm{{ asset.id }}" class="text-green-600 hover:underline text-xs font-bold">Generate</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="view-unassigned" class="hidden">
+    <div class="bg-white p-6 rounded-xl shadow-md mb-6 border border-blue-100">
+        <h3 class="font-bold text-lg mb-2 text-blue-800">Create New Batch</h3>
+        <p class="text-sm text-gray-600 mb-4">Generate random QR codes to print on stickers now and assign to laptops later.</p>
+        <form action="{{ url_for('qr.generate_batch') }}" method="POST" class="flex gap-4 items-end">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Quantity</label>
+                <input type="number" name="count" value="10" min="1" max="100" class="border p-2 rounded w-32">
+            </div>
+            <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Generate Batch</button>
+        </form>
+    </div>
+    <form action="{{ url_for('qr.print_stickers') }}" method="POST" target="_blank" id="qrFormUnassigned">
+        <input type="hidden" name="start_position" id="form_start_pos_u">
+        <input type="hidden" name="grid_columns" id="form_cols_u">
+        <input type="hidden" name="grid_rows" id="form_rows_u">
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg">Available Stickers</h3>
+                <button type="button" onclick="openPrintModal('unassigned')" class="bg-gray-800 text-white px-4 py-2 rounded shadow text-sm">Print Selected</button>
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-5 py-3 text-left w-10"><input type="checkbox" onclick="toggleAllPregen(this)"></th>
+                            <th class="px-5 py-3 text-left">Hash ID</th>
+                            <th class="px-5 py-3 text-left">Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sticker in unassigned_qrs %}
+                        <tr class="border-b">
+                            <td class="px-5 py-3"><input type="checkbox" name="pregen_ids" value="{{ sticker.id }}"></td>
+                            <td class="px-5 py-3 font-mono text-xs text-gray-600">{{ sticker.qr_hash[:16] }}...</td>
+                            <td class="px-5 py-3 text-xs text-gray-500">{{ sticker.created_at.strftime('%Y-%m-%d') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% for asset in assets %}
+<form id="genForm{{ asset.id }}" action="{{ url_for('qr.generate', asset_id=asset.id) }}" method="POST" style="display:none;"></form>
+{% endfor %}
+
+<script>
+    let activeFormId = 'qrForm'; 
+    function switchTab(tab) {
+        document.getElementById('view-assigned').classList.add('hidden');
+        document.getElementById('view-unassigned').classList.add('hidden');
+        document.getElementById('tab-assigned').classList.remove('border-b-2', 'border-brand', 'text-brand');
+        document.getElementById('tab-unassigned').classList.remove('border-b-2', 'border-brand', 'text-brand');
+        document.getElementById('tab-assigned').classList.add('text-gray-500');
+        document.getElementById('tab-unassigned').classList.add('text-gray-500');
+        document.getElementById('view-' + tab).classList.remove('hidden');
+        document.getElementById('tab-' + tab).classList.add('border-b-2', 'border-brand', 'text-brand');
+        document.getElementById('tab-' + tab).classList.remove('text-gray-500');
+    }
+    function toggleAll(source) { checkboxes = document.getElementsByName('asset_ids'); for(var i=0, n=checkboxes.length;i<n;i++) checkboxes[i].checked = source.checked; }
+    function toggleAllPregen(source) { checkboxes = document.getElementsByName('pregen_ids'); for(var i=0, n=checkboxes.length;i<n;i++) checkboxes[i].checked = source.checked; }
+    function toggleQR(id) { fetch(`/qr/toggle/${id}`, {method: 'POST'}).then(res => res.json()).then(data => { if(data.success) location.reload(); }); }
+    function applyFilters() {
+        const branch = document.querySelector('select[name="branch_filter"]').value;
+        const status = document.querySelector('select[name="status_filter"]').value;
+        window.location.href = `{{ url_for('qr.manage') }}?branch_id=${branch}&status=${status}`;
+    }
+    function openPrintModal(mode) {
+        activeFormId = mode === 'unassigned' ? 'qrFormUnassigned' : 'qrForm';
+        document.getElementById('printSettingsModal').classList.remove('hidden');
+    }
+    function closePrintModal() { document.getElementById('printSettingsModal').classList.add('hidden'); }
+    function confirmPrint() {
+        const startPos = document.getElementById('modal_start_pos').value;
+        const cols = document.getElementById('modal_cols').value;
+        const rows = document.getElementById('modal_rows').value;
+        if (activeFormId === 'qrForm') {
+            document.getElementById('form_start_pos').value = startPos;
+            document.getElementById('form_cols').value = cols;
+            document.getElementById('form_rows').value = rows;
+        } else {
+            document.getElementById('form_start_pos_u').value = startPos;
+            document.getElementById('form_cols_u').value = cols;
+            document.getElementById('form_rows_u').value = rows;
+        }
+        document.getElementById(activeFormId).submit();
+        closePrintModal();
+    }
+</script>
+{% endblock %}

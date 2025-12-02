@@ -1,0 +1,49 @@
+name: Deploy Asset App
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to DigitalOcean (copy files)
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: root
+          key: ${{ secrets.DO_SSH_KEY }}
+          source: "."
+          target: "/var/www/asset_app"
+
+      - name: Run backend setup on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: root
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            echo "🔧 Updating project on server..."
+            cd /var/www/asset_app
+
+            # Activate virtual environment
+            if [ -d "venv" ]; then
+              source venv/bin/activate
+            else
+              python3 -m venv venv
+              source venv/bin/activate
+            fi
+
+            # Install dependencies
+            pip install -r requirements.txt
+
+            # Restart Gunicorn service
+            echo "🔄 Restarting assettrack.service..."
+            systemctl restart assettrack.service
+
+            echo "✅ Deployment complete!"

@@ -2,40 +2,45 @@
 {% extends "base.html" %}
 {% block content %}
 
+<!-- QR MODAL -->
+<div id="qrViewModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center" onclick="closeModal('qrViewModal')">
+    <div class="bg-white p-5 rounded-xl max-w-sm w-full text-center relative" onclick="event.stopPropagation()">
+        <h3 class="font-bold text-lg mb-2">Asset QR Code</h3>
+        <div id="qrImageContainer" class="flex justify-center mb-4"></div>
+        <p class="text-xs text-gray-500 mb-4">Hash: <span id="qrHashDisplay" class="font-mono"></span></p>
+        <button onclick="closeModal('qrViewModal')" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 w-full">Close</button>
+    </div>
+</div>
+
+<!-- TOP HEADER -->
 <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
     <div>
         <h2 class="text-3xl font-bold text-gray-800">Asset Inventory</h2>
         <p class="text-gray-500 text-sm mt-1">Manage laptops, stock, and allocations.</p>
     </div>
     <div class="flex space-x-3">
-        <button onclick="document.getElementById('addAssetModal').classList.remove('hidden')" class="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-lg shadow-md transition-all flex items-center">
+        <button onclick="openModal('addAssetModal')" class="bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-lg shadow-md transition-all flex items-center">
             <i class="fas fa-plus mr-2"></i> Add Asset
         </button>
-        
         <!-- Export Dropdown -->
         <div class="relative group">
             <button class="bg-gray-800 text-white px-5 py-2.5 rounded-lg shadow-md hover:bg-gray-900 transition-all flex items-center">
                 <i class="fas fa-file-download mr-2"></i> Export
             </button>
             <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl hidden group-hover:block border border-gray-100 z-20">
-                <a href="{{ url_for('assets.export_csv', mode='summary') }}" class="block px-4 py-2 text-gray-700 hover:bg-brand hover:text-white rounded-t-lg text-sm">
-                    Current Summary
-                </a>
-                <a href="{{ url_for('assets.export_csv', mode='detailed') }}" class="block px-4 py-2 text-gray-700 hover:bg-brand hover:text-white rounded-b-lg text-sm">
-                    Full History Log
-                </a>
+                <a href="{{ url_for('assets.export_csv', mode='summary') }}" class="block px-4 py-2 text-gray-700 hover:bg-brand hover:text-white rounded-t-lg text-sm">Current Summary</a>
+                <a href="{{ url_for('assets.export_csv', mode='detailed') }}" class="block px-4 py-2 text-gray-700 hover:bg-brand hover:text-white rounded-b-lg text-sm">Full History Log</a>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Real-time Search Bar -->
+<!-- SEARCH BAR -->
 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
     <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
         <div class="md:col-span-5 relative">
             <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-            <input type="text" id="searchInput" placeholder="Search Serial, Model, Person or Branch..." 
-                   class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand transition-all">
+            <input type="text" id="searchInput" placeholder="Search Serial, Model, Person or Branch..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand transition-all">
         </div>
         <div class="md:col-span-3">
             <select id="statusFilter" class="w-full border border-gray-200 rounded-lg p-2 focus:ring-2 focus:ring-brand focus:border-brand">
@@ -57,7 +62,7 @@
     </div>
 </div>
 
-<!-- Table -->
+<!-- ASSET TABLE -->
 <div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
     <table class="min-w-full leading-normal">
         <thead class="bg-gray-50 border-b border-gray-200">
@@ -81,24 +86,15 @@
     <div class="relative p-6 border w-96 shadow-2xl rounded-xl bg-white">
         <div class="flex justify-between items-center mb-5">
             <h3 class="text-xl font-bold text-gray-800">Add New Asset</h3>
-            <button onclick="document.getElementById('addAssetModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            <button type="button" onclick="closeModal('addAssetModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
-        <form action="{{ url_for('assets.add') }}" method="POST">
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-gray-600 mb-1">Serial Number</label>
-                <input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="serial" required>
-            </div>
+        <form action="{{ url_for('assets.add') }}" method="POST" enctype="multipart/form-data">
+            <div class="mb-3"><label class="block text-xs font-bold text-gray-600 mb-1">Serial Number</label><input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="serial" required></div>
             <div class="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1">Brand</label>
-                    <input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="brand" value="HP" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1">Model</label>
-                    <input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="model" value="EliteBook" required>
-                </div>
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">Brand</label><input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="brand" value="HP" required></div>
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">Model</label><input class="w-full border p-2 rounded focus:ring-brand focus:border-brand" type="text" name="model" value="EliteBook" required></div>
             </div>
-            <div class="mb-6">
+            <div class="mb-4">
                 <label class="block text-xs font-bold text-gray-600 mb-1">Initial Branch</label>
                 <div class="flex gap-2">
                     <select id="assetBranchSelect" class="w-full border p-2 rounded focus:ring-brand focus:border-brand" name="branch_id" required>
@@ -107,11 +103,12 @@
                         <option value="{{ b.id }}" {% if 'gurugram' in b.name.lower() %}selected{% endif %}>{{ b.name }}</option>
                         {% endfor %}
                     </select>
-                    <button type="button" onclick="document.getElementById('addBranchModal').classList.remove('hidden')" class="bg-brand text-white px-3 rounded hover:bg-brand-dark" title="Add New Branch">+</button>
+                    <button type="button" onclick="openModal('addBranchModal')" class="bg-brand text-white px-3 rounded hover:bg-brand-dark" title="Add New Branch">+</button>
                 </div>
             </div>
+            <div class="mb-6"><label class="block text-xs font-bold text-gray-600 mb-1">Invoice / Doc</label><input type="file" name="document" class="w-full text-xs border p-2 rounded"></div>
             <div class="flex justify-end space-x-2 border-t pt-4">
-                <button type="button" onclick="document.getElementById('addAssetModal').classList.add('hidden')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">Cancel</button>
+                <button type="button" onclick="closeModal('addAssetModal')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">Cancel</button>
                 <button type="submit" class="px-4 py-2 bg-brand text-white rounded hover:bg-brand-dark font-medium shadow-lg shadow-orange-200">Save Asset</button>
             </div>
         </form>
@@ -126,21 +123,20 @@
             <input class="w-full border p-2 mb-2 rounded" type="text" name="name" placeholder="Branch Name" required>
             <input class="w-full border p-2 mb-4 rounded" type="text" name="location" placeholder="Location" required>
             <div class="flex justify-end space-x-2">
-                <button type="button" onclick="document.getElementById('addBranchModal').classList.add('hidden')" class="px-3 py-1 bg-gray-300 rounded text-sm">Close</button>
+                <button type="button" onclick="closeModal('addBranchModal')" class="px-3 py-1 bg-gray-300 rounded text-sm">Close</button>
                 <button type="submit" class="px-3 py-1 bg-brand text-white rounded text-sm">Add</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- SHORTCUT: QUICK ALLOCATE MODAL -->
+<!-- QUICK ALLOCATE MODAL -->
 <div id="quickAllocateModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 overflow-y-auto h-full w-full z-50 flex items-center justify-center backdrop-blur-sm">
     <div class="relative p-6 border w-80 shadow-2xl rounded-xl bg-white">
         <h3 class="text-lg font-bold mb-2 text-green-700">Quick Allocation</h3>
         <p class="text-xs text-gray-500 mb-4">Assign <span id="qa_serial" class="font-mono font-bold text-black"></span> to user.</p>
-        <form action="{{ url_for('assets.allocate') }}" method="POST">
+        <form action="{{ url_for('assets.allocate') }}" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="asset_id" id="qa_asset_id">
-            
             <label class="block text-xs font-bold text-gray-600 mb-1">Select Employee</label>
             <select name="employee_id" class="w-full border p-2 rounded text-sm mb-4 bg-white" required>
                 <option value="" disabled selected>Choose...</option>
@@ -148,23 +144,22 @@
                 <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.emp_id }})</option>
                 {% endfor %}
             </select>
-            
+            <div class="mb-4"><label class="block text-xs font-bold text-gray-600 mb-1">Proof (Optional)</label><input type="file" name="document" class="w-full text-xs"></div>
             <div class="flex justify-end space-x-2">
-                <button type="button" onclick="document.getElementById('quickAllocateModal').classList.add('hidden')" class="px-3 py-2 bg-gray-100 rounded text-sm">Cancel</button>
+                <button type="button" onclick="closeModal('quickAllocateModal')" class="px-3 py-2 bg-gray-100 rounded text-sm">Cancel</button>
                 <button type="submit" class="px-3 py-2 bg-green-600 text-white rounded text-sm shadow">Allocate</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- SHORTCUT: QUICK TRANSFER (CHANGE BRANCH) MODAL -->
+<!-- QUICK TRANSFER MODAL -->
 <div id="quickTransferModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 overflow-y-auto h-full w-full z-50 flex items-center justify-center backdrop-blur-sm">
     <div class="relative p-6 border w-80 shadow-2xl rounded-xl bg-white">
         <h3 class="text-lg font-bold mb-2 text-blue-700">Change Branch</h3>
         <p class="text-xs text-gray-500 mb-4">Move <span id="qt_serial" class="font-mono font-bold text-black"></span> to new location.</p>
-        <form action="{{ url_for('assets.transfer') }}" method="POST">
+        <form action="{{ url_for('assets.transfer') }}" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="asset_id" id="qt_asset_id">
-            
             <label class="block text-xs font-bold text-gray-600 mb-1">Destination Branch</label>
             <select name="branch_id" class="w-full border p-2 rounded text-sm mb-3 bg-white" required>
                 <option value="" disabled selected>Choose Branch...</option>
@@ -172,19 +167,47 @@
                 <option value="{{ b.id }}">{{ b.name }}</option>
                 {% endfor %}
             </select>
-            
-            <input type="text" name="remarks" placeholder="Remarks (Optional)" class="border p-2 rounded w-full text-sm mb-4">
-            
+            <input type="text" name="remarks" placeholder="Remarks (Optional)" class="border p-2 rounded w-full text-sm mb-3">
+            <div class="mb-4"><label class="block text-xs font-bold text-gray-600 mb-1">Courier/Doc</label><input type="file" name="document" class="w-full text-xs"></div>
             <div class="flex justify-end space-x-2">
-                <button type="button" onclick="document.getElementById('quickTransferModal').classList.add('hidden')" class="px-3 py-2 bg-gray-100 rounded text-sm">Cancel</button>
+                <button type="button" onclick="closeModal('quickTransferModal')" class="px-3 py-2 bg-gray-100 rounded text-sm">Cancel</button>
                 <button type="submit" class="px-3 py-2 bg-blue-600 text-white rounded text-sm shadow">Move</button>
             </div>
         </form>
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-    // Real-time Logic (Search & Filtering)
+    // --- MODAL UTILS ---
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // --- QR Logic ---
+    function showQR(hash) {
+        const container = document.getElementById('qrImageContainer');
+        const display = document.getElementById('qrHashDisplay');
+        container.innerHTML = ""; 
+        const url = window.location.origin + "/qr/scan/" + hash;
+        new QRCode(container, { text: url, width: 200, height: 200 });
+        display.innerText = hash.substring(0, 8) + "...";
+        openModal('qrViewModal');
+    }
+
+    // --- Shortcut Openers ---
+    function openAllocateModal(id, serial) {
+        document.getElementById('qa_asset_id').value = id;
+        document.getElementById('qa_serial').innerText = serial;
+        openModal('quickAllocateModal');
+    }
+
+    function openTransferModal(id, serial) {
+        document.getElementById('qt_asset_id').value = id;
+        document.getElementById('qt_serial').innerText = serial;
+        openModal('quickTransferModal');
+    }
+
+    // --- Search/Filter ---
     const searchInput = document.getElementById('searchInput');
     const statusFilter = document.getElementById('statusFilter');
     const branchFilter = document.getElementById('branchFilter');
@@ -196,15 +219,11 @@
             status: statusFilter.value,
             branch_id: branchFilter.value
         });
-
         fetch(`{{ url_for('assets.list_assets') }}?${params.toString()}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(response => response.text())
-        .then(html => {
-            tableBody.innerHTML = html;
-        })
-        .catch(err => console.error('Error fetching results:', err));
+        .then(html => { tableBody.innerHTML = html; });
     }
 
     let timeout = null;
@@ -212,11 +231,10 @@
         clearTimeout(timeout);
         timeout = setTimeout(fetchResults, 300);
     });
-
     statusFilter.addEventListener('change', fetchResults);
     branchFilter.addEventListener('change', fetchResults);
 
-    // Quick Add Branch Logic
+    // --- Quick Add Branch ---
     document.getElementById('quickAddBranchForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -227,27 +245,12 @@
         .then(data => {
             if(data.success) {
                 const select = document.getElementById('assetBranchSelect');
-                const option = new Option(data.name, data.id);
-                select.add(option);
+                select.add(new Option(data.name, data.id));
                 select.value = data.id;
-                document.getElementById('addBranchModal').classList.add('hidden');
+                closeModal('addBranchModal');
                 this.reset();
             } else { alert(data.message); }
         });
     });
-
-    // Shortcut Modal Openers
-    function openAllocateModal(id, serial) {
-        document.getElementById('qa_asset_id').value = id;
-        document.getElementById('qa_serial').innerText = serial;
-        document.getElementById('quickAllocateModal').classList.remove('hidden');
-    }
-
-    function openTransferModal(id, serial) {
-        document.getElementById('qt_asset_id').value = id;
-        document.getElementById('qt_serial').innerText = serial;
-        document.getElementById('quickTransferModal').classList.remove('hidden');
-    }
 </script>
-
 {% endblock %}

@@ -1,0 +1,70 @@
+<!-- Path: app/templates/admin/transactions.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800">Transaction Audit Log</h2>
+    <p class="text-gray-500 text-sm mt-1">View system-wide actions and revert accidental changes.</p>
+</div>
+
+<div class="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+    <table class="min-w-full leading-normal">
+        <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Asset</th>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Action</th>
+                <th class="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Details</th>
+                <th class="px-5 py-3 text-right text-xs font-bold text-gray-500 uppercase">Revert</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for txn in history.items %}
+            <tr class="border-b hover:bg-gray-50">
+                <td class="px-5 py-4 text-sm text-gray-500 font-mono">
+                    {{ txn.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </td>
+                <td class="px-5 py-4 text-sm">
+                    <div class="font-bold text-gray-800">{{ txn.asset.serial_number }}</div>
+                    <div class="text-xs text-gray-500">{{ txn.asset.model }}</div>
+                </td>
+                <td class="px-5 py-4 text-sm">
+                    <span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{{ txn.action }}</span>
+                </td>
+                <td class="px-5 py-4 text-sm text-gray-600">
+                    <div class="flex flex-col text-xs">
+                        <span><span class="text-gray-400">From:</span> {{ txn.from_detail }}</span>
+                        <span><span class="text-gray-400">To:</span> {{ txn.to_detail }}</span>
+                        {% if txn.notes %}
+                        <span class="italic text-gray-400 mt-1">Note: {{ txn.notes }}</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="px-5 py-4 text-sm text-right">
+                    <!-- Only show Revert if it's the latest txn for this asset (Simplified check logic usually handled by backend validation, but here we show button and let backend validate) -->
+                    <form action="{{ url_for('admin.revert_transaction', history_id=txn.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to revert this action? This will restore the asset to its previous state.');">
+                        <button type="submit" class="text-red-600 hover:text-red-800 font-bold text-xs border border-red-200 bg-red-50 px-3 py-1 rounded hover:bg-red-100 transition-colors">
+                            <i class="fas fa-history mr-1"></i> Revert
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    <div class="px-5 py-3 bg-white border-t flex justify-between items-center">
+        <span class="text-xs text-gray-500">
+            Page {{ history.page }} of {{ history.pages }}
+        </span>
+        <div class="flex space-x-2">
+            {% if history.has_prev %}
+            <a href="{{ url_for('admin.transactions', page=history.prev_num) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">Previous</a>
+            {% endif %}
+            {% if history.has_next %}
+            <a href="{{ url_for('admin.transactions', page=history.next_num) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-100">Next</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,8 +1,11 @@
 # Path: app/routes/assets.py
+import os
+import uuid
 import io
 import csv
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, jsonify
+from werkzeug.utils import secure_filename
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, jsonify, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app.extensions import db
@@ -10,11 +13,36 @@ from app.models import Asset, Branch, Employee, AssetHistory
 
 assets_bp = Blueprint('assets', __name__)
 
-def log_history(asset, action, from_d, to_d, courier="", notes=""):
+# --- HELPER: File Upload ---
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+
+def save_proof(file_obj):
+    if file_obj and allowed_file(file_obj.filename):
+        filename = secure_filename(file_obj.filename)
+        # Rename to avoid collisions: proof_<timestamp>_<uuid>.<ext>
+        unique_name = f"proof_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}.{filename.rsplit('.', 1)[1].lower()}"
+        file_obj.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_name))
+        return unique_name
+    return None
+
+# --- HELPER: Log History with Snapshot ---
+def log_history(asset, action, from_d, to_d, courier="", notes="", doc_path=None):
     history = AssetHistory(
-        asset_id=asset.id, action=action, from_detail=from_d, to_detail=to_d,
-        courier_details=courier, notes=notes,
-        created_by_user_id=current_user.id, timestamp=datetime.now()
+        asset_id=asset.id,
+        action=action,
+        from_detail=from_d,
+        to_detail=to_d,
+        courier_details=courier,
+        notes=notes,
+        document_path=doc_path,
+        created_by_user_id=current_user.id,
+        timestamp=datetime.now(),
+        # SAVE SNAPSHOT OF NEW STATE
+        post_action_status=asset.status,
+        post_action_branch_id=asset.current_branch_id,
+        post_action_employee_id=asset.current_employee_id
     )
     db.session.add(history)
 
@@ -50,9 +78,7 @@ def list_assets():
         return render_template('assets/_table_rows.html', assets=assets)
 
     branches = Branch.query.all()
-    # Added employees for the Quick Allocate modal
     employees = Employee.query.filter_by(status='Active').all()
-    
     return render_template('assets/list.html', assets=assets, branches=branches, employees=employees)
 
 @assets_bp.route('/<int:asset_id>')
@@ -71,14 +97,19 @@ def add():
     brand = request.form.get('brand')
     branch_id = request.form.get('branch_id')
     
+    # Handle File
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
+    
     branch = Branch.query.get(branch_id)
     new_asset = Asset(
         serial_number=serial, brand=brand, model=model, status='In Stock',
         current_branch_id=branch_id, purchase_date=datetime.now()
     )
     db.session.add(new_asset)
-    db.session.commit()
-    log_history(new_asset, "Purchase", "Vendor", f"Stock ({branch.name})")
+    db.session.commit() # Commit first to get ID
+    
+    log_history(new_asset, "Purchase", "Vendor", f"Stock ({branch.name})", doc_path=doc_filename)
     db.session.commit()
     flash('Asset Created Successfully', 'success')
     return redirect(url_for('assets.list_assets'))
@@ -106,16 +137,21 @@ def add_branch():
 def allocate():
     asset_id = request.form.get('asset_id')
     emp_id = request.form.get('employee_id')
+    
+    # Handle File
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
+
     asset = Asset.query.get(asset_id)
     employee = Employee.query.get(emp_id)
     
     old_loc = f"Stock ({asset.branch.name})" if asset.branch else "Unknown"
     asset.status = 'Allocated'
     asset.current_employee_id = emp_id
-    log_history(asset, "Allocation", old_loc, f"{employee.name} ({employee.emp_id})")
+    
+    log_history(asset, "Allocation", old_loc, f"{employee.name} ({employee.emp_id})", doc_path=doc_filename)
     db.session.commit()
     flash('Asset Allocated', 'success')
-    # Redirect back to list if action came from list
     if 'assets' in request.referrer and 'asset/' not in request.referrer:
          return redirect(url_for('assets.list_assets'))
     return redirect(url_for('assets.detail', asset_id=asset_id))
@@ -126,6 +162,8 @@ def return_asset():
     asset_id = request.form.get('asset_id')
     branch_id = request.form.get('branch_id')
     remarks = request.form.get('remarks')
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
     
     asset = Asset.query.get(asset_id)
     branch = Branch.query.get(branch_id)
@@ -135,7 +173,7 @@ def return_asset():
     asset.current_employee_id = None
     asset.current_branch_id = branch_id
     
-    log_history(asset, "Return", old_holder, f"Stock ({branch.name})", notes=remarks)
+    log_history(asset, "Return", old_holder, f"Stock ({branch.name})", notes=remarks, doc_path=doc_filename)
     db.session.commit()
     flash('Asset Returned to Stock', 'success')
     return redirect(url_for('assets.detail', asset_id=asset_id))
@@ -147,6 +185,8 @@ def transfer():
     target_branch_id = request.form.get('branch_id')
     courier = request.form.get('courier')
     remarks = request.form.get('remarks')
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
     
     asset = Asset.query.get(asset_id)
     target_branch = Branch.query.get(target_branch_id)
@@ -156,24 +196,23 @@ def transfer():
     asset.current_employee_id = None
     asset.current_branch_id = target_branch_id 
     
-    log_history(asset, "Transfer Initiated", f"Branch {old_loc}", f"Branch {target_branch.name}", courier=courier, notes=remarks)
+    log_history(asset, "Transfer Initiated", f"Branch {old_loc}", f"Branch {target_branch.name}", courier=courier, notes=remarks, doc_path=doc_filename)
     db.session.commit()
     flash('Transfer Initiated', 'success')
-    
-    # Redirect back to list if action came from list (modal)
-    # We check referrer URL to decide
     if request.referrer and 'asset/' not in request.referrer: 
          return redirect(url_for('assets.list_assets'))
-         
     return redirect(url_for('assets.detail', asset_id=asset_id))
 
 @assets_bp.route('/action/receive', methods=['POST'])
 @login_required
 def receive():
     asset_id = request.form.get('asset_id')
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
+
     asset = Asset.query.get(asset_id)
     asset.status = 'In Stock'
-    log_history(asset, "Transfer Received", "Courier", f"Stock ({asset.branch.name})")
+    log_history(asset, "Transfer Received", "Courier", f"Stock ({asset.branch.name})", doc_path=doc_filename)
     db.session.commit()
     flash('Asset Received', 'success')
     return redirect(url_for('assets.detail', asset_id=asset_id))
@@ -183,8 +222,10 @@ def receive():
 def repair():
     asset_id = request.form.get('asset_id')
     notes = request.form.get('notes')
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
+
     asset = Asset.query.get(asset_id)
-    
     from_who = "Unknown"
     if asset.holder:
         from_who = f"{asset.holder.name} (Allocated)"
@@ -192,7 +233,7 @@ def repair():
         from_who = f"Stock ({asset.branch.name})"
         
     asset.status = 'Repair'
-    log_history(asset, "Sent to Repair", from_who, "Repair Center", notes=notes)
+    log_history(asset, "Sent to Repair", from_who, "Repair Center", notes=notes, doc_path=doc_filename)
     db.session.commit()
     flash('Asset marked as Under Repair', 'success')
     return redirect(url_for('assets.detail', asset_id=asset_id))
@@ -202,8 +243,10 @@ def repair():
 def complete_repair():
     asset_id = request.form.get('asset_id')
     notes = request.form.get('notes')
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
+
     asset = Asset.query.get(asset_id)
-    
     if asset.current_employee_id:
         asset.status = 'Allocated'
         to_detail = f"{asset.holder.name} (Owner)"
@@ -213,7 +256,7 @@ def complete_repair():
         to_detail = f"Stock ({asset.branch.name})"
         flash_msg = 'Repair Complete. Asset returned to Stock.'
     
-    log_history(asset, "Repair Completed", "Repair Center", to_detail, notes=notes)
+    log_history(asset, "Repair Completed", "Repair Center", to_detail, notes=notes, doc_path=doc_filename)
     db.session.commit()
     flash(flash_msg, 'success')
     return redirect(url_for('assets.detail', asset_id=asset_id))
@@ -223,19 +266,20 @@ def complete_repair():
 def retire_asset():
     asset_id = request.form.get('asset_id')
     remarks = request.form.get('remarks')
+    doc_file = request.files.get('document')
+    doc_filename = save_proof(doc_file)
+
     asset = Asset.query.get_or_404(asset_id)
-    
     if asset.holder:
-        flash(f'Failed: Asset is currently allocated to {asset.holder.name}. Return it to stock first.', 'error')
+        flash(f'Failed: Asset is currently allocated to {asset.holder.name}.', 'error')
         return redirect(url_for('assets.detail', asset_id=asset_id))
         
     old_status = asset.status
     asset.status = 'Retired'
     asset.current_employee_id = None 
     
-    log_history(asset, "Retired/Scrapped", old_status, "Retired", notes=remarks)
+    log_history(asset, "Retired/Scrapped", old_status, "Retired", notes=remarks, doc_path=doc_filename)
     db.session.commit()
-    
     flash('Asset has been Retired/Scrapped.', 'success')
     return redirect(url_for('assets.detail', asset_id=asset_id))
 
@@ -247,13 +291,14 @@ def export_csv():
     cw = csv.writer(si)
     
     if mode == 'detailed':
-        cw.writerow(['Date', 'Serial', 'Brand', 'Model', 'Action', 'From', 'To', 'Courier', 'Remarks', 'User'])
+        cw.writerow(['Date', 'Serial', 'Brand', 'Model', 'Action', 'From', 'To', 'Courier', 'Remarks', 'Doc', 'User'])
         history = AssetHistory.query.order_by(AssetHistory.timestamp.desc()).all()
         for h in history:
             cw.writerow([
                 h.timestamp.strftime('%Y-%m-%d %H:%M'),
                 h.asset.serial_number, h.asset.brand, h.asset.model,
                 h.action, h.from_detail, h.to_detail, h.courier_details, h.notes,
+                "Yes" if h.document_path else "No",
                 h.created_by_user_id
             ])
     else:

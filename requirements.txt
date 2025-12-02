@@ -3,3 +3,5 @@ flask-sqlalchemy
 flask-login
 python-dotenv
 pymysql
+qrcode[pil]
+pillow
