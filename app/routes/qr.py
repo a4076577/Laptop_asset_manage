@@ -13,11 +13,9 @@ qr_bp = Blueprint('qr', __name__)
 
 def log_scan_event(qr_hash, asset_id=None):
     try:
-        # Get real IP if behind Nginx proxy
         ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         if ip and ',' in ip:
             ip = ip.split(',')[0].strip()
-            
         agent = request.headers.get('User-Agent')
         log = ScanLog(qr_hash=qr_hash, ip_address=ip, user_agent=agent[:200], linked_asset_id=asset_id)
         db.session.add(log)
@@ -36,6 +34,10 @@ def manage():
     assets = query.all()
     
     unassigned_qrs = PreGeneratedQR.query.filter_by(status='Available').order_by(PreGeneratedQR.created_at.desc()).all()
+    
+    # NEW: Fetch assets that need QRs for the manual link dropdown
+    assets_without_qr = Asset.query.filter(Asset.qr_code_hash == None, Asset.status != 'Retired').all()
+    
     branches = Branch.query.all()
     statuses = db.session.query(Asset.status).distinct().all()
     unique_statuses = [s[0] for s in statuses]
@@ -43,9 +45,69 @@ def manage():
     global_scan = SystemSetting.query.filter_by(key='global_qr_scan').first()
     global_scan_enabled = True if not global_scan or global_scan.value == '1' else False
     
-    return render_template('qr/manage.html', assets=assets, unassigned_qrs=unassigned_qrs, branches=branches, statuses=unique_statuses, global_scan_enabled=global_scan_enabled)
+    return render_template('qr/manage.html', assets=assets, unassigned_qrs=unassigned_qrs, 
+                           branches=branches, statuses=unique_statuses, 
+                           global_scan_enabled=global_scan_enabled,
+                           assets_without_qr=assets_without_qr)
 
-# --- NEW: SCAN HISTORY (Admin Only) ---
+# --- NEW: GENERATE ALL MISSING ---
+@qr_bp.route('/generate_all_missing', methods=['POST'])
+@login_required
+def generate_all_missing():
+    # Find all active assets without a QR code
+    targets = Asset.query.filter(Asset.qr_code_hash == None, Asset.status != 'Retired').all()
+    count = 0
+    for asset in targets:
+        asset.qr_code_hash = uuid.uuid4().hex
+        asset.is_qr_active = True
+        count += 1
+    db.session.commit()
+    flash(f'Successfully generated QR codes for {count} assets.', 'success')
+    return redirect(url_for('qr.manage'))
+
+# --- NEW: MANUAL LINK (Assign Sticker from UI) ---
+@qr_bp.route('/manual_link', methods=['POST'])
+@login_required
+def manual_link():
+    pregen_id = request.form.get('pregen_id')
+    asset_id = request.form.get('asset_id')
+    
+    pre_gen = PreGeneratedQR.query.get(pregen_id)
+    asset = Asset.query.get(asset_id)
+    
+    if not pre_gen or not asset:
+        flash('Invalid selection.', 'error')
+        return redirect(url_for('qr.manage'))
+        
+    if pre_gen.status != 'Available':
+        flash('This sticker is already used.', 'error')
+        return redirect(url_for('qr.manage'))
+
+    if asset.qr_code_hash:
+        flash('This asset already has a QR code.', 'error')
+        return redirect(url_for('qr.manage'))
+        
+    # Perform Link
+    asset.qr_code_hash = pre_gen.qr_hash
+    asset.is_qr_active = True
+    pre_gen.status = 'Consumed'
+    
+    # Log
+    hist = AssetHistory(
+        asset_id=asset.id,
+        action="QR Linked",
+        from_detail="Unassigned Sticker",
+        to_detail="Manual Assignment via Dashboard",
+        created_by_user_id=current_user.id,
+        timestamp=datetime.now(),
+        post_action_status=asset.status
+    )
+    db.session.add(hist)
+    db.session.commit()
+    
+    flash(f'QR Sticker successfully linked to {asset.serial_number}', 'success')
+    return redirect(url_for('qr.manage'))
+
 @qr_bp.route('/history')
 @login_required
 def scan_history():
@@ -54,7 +116,6 @@ def scan_history():
         return redirect(url_for('qr.manage'))
         
     page = request.args.get('page', 1, type=int)
-    # Join with Asset to show serial numbers
     logs = db.session.query(ScanLog, Asset).outerjoin(Asset, ScanLog.linked_asset_id == Asset.id)\
         .order_by(ScanLog.timestamp.desc())\
         .paginate(page=page, per_page=50)

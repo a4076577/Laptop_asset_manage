@@ -2,6 +2,7 @@
 {% extends "base.html" %}
 {% block content %}
 
+<!-- HEADER -->
 <div class="flex justify-between items-center mb-6">
     <div>
         <h2 class="text-3xl font-bold text-gray-800">QR Code Manager</h2>
@@ -33,9 +34,7 @@
     <button onclick="switchTab('unassigned')" id="tab-unassigned" class="px-4 py-2 text-gray-500 hover:text-brand transition-all">Unassigned Stickers</button>
 </div>
 
-<!-- ... [Rest of file identical to previous version] ... -->
-<!-- (Paste the Print Modal, View Assigned, View Unassigned, and Script sections from the previous 'QR Manager' response here) -->
-<!-- PRINT SETTINGS MODAL (New) -->
+<!-- PRINT SETTINGS MODAL -->
 <div id="printSettingsModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center" onclick="closePrintModal()">
     <div class="bg-white p-6 rounded-xl max-w-sm w-full" onclick="event.stopPropagation()">
         <h3 class="text-lg font-bold mb-4 text-gray-800 border-b pb-2">Print Configuration</h3>
@@ -43,7 +42,6 @@
             <div>
                 <label class="block text-xs font-bold text-gray-500 mb-1">Start Position (Skip Used)</label>
                 <input type="number" id="modal_start_pos" value="1" min="1" max="24" class="w-full border p-2 rounded text-sm">
-                <p class="text-xs text-gray-400 mt-1">Leave 0 to start at top-left.</p>
             </div>
             <div class="flex gap-4">
                 <div>
@@ -63,12 +61,45 @@
     </div>
 </div>
 
+<!-- MANUAL LINK MODAL (NEW) -->
+<div id="manualLinkModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center" onclick="closeLinkModal()">
+    <div class="bg-white p-6 rounded-xl max-w-md w-full" onclick="event.stopPropagation()">
+        <h3 class="text-lg font-bold mb-4 text-brand border-b pb-2">Allocate QR Sticker</h3>
+        <p class="text-sm text-gray-600 mb-4">Select an asset to assign this sticker to.</p>
+        
+        <form action="{{ url_for('qr.manual_link') }}" method="POST">
+            <input type="hidden" name="pregen_id" id="link_pregen_id">
+            
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-gray-500 mb-1">Target Asset (No QR)</label>
+                <select name="asset_id" class="w-full border p-3 rounded bg-gray-50" required>
+                    <option value="" disabled selected>Select an asset...</option>
+                    {% for asset in assets_without_qr %}
+                    <option value="{{ asset.id }}">{{ asset.serial_number }} - {{ asset.model }}</option>
+                    {% endfor %}
+                </select>
+                {% if not assets_without_qr %}
+                <p class="text-xs text-red-500 mt-1">No assets available without QR codes.</p>
+                {% endif %}
+            </div>
+            
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeLinkModal()" class="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-brand text-white rounded hover:bg-brand-dark text-sm shadow-lg" {% if not assets_without_qr %}disabled{% endif %}>Assign Sticker</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- TAB 1: ASSIGNED ASSETS -->
 <div id="view-assigned">
     <div class="bg-white p-5 rounded-xl shadow-md border border-gray-100 mb-6">
         <form action="{{ url_for('qr.print_stickers') }}" method="POST" target="_blank" id="qrForm">
             <input type="hidden" name="start_position" id="form_start_pos">
             <input type="hidden" name="grid_columns" id="form_cols">
             <input type="hidden" name="grid_rows" id="form_rows">
+
+            <!-- Filters -->
             <div class="flex flex-wrap gap-4 mb-6 border-b pb-6 items-end">
                 <div class="w-1/3">
                     <label class="block text-xs font-bold text-gray-500 mb-1">Filter Branch</label>
@@ -88,12 +119,18 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="flex-grow text-right">
-                     <button type="button" onclick="openPrintModal()" class="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2 rounded-lg shadow flex items-center ml-auto">
+                <div class="flex-grow text-right space-x-2">
+                     <!-- GENERATE ALL MISSING BUTTON -->
+                     <button type="submit" formaction="{{ url_for('qr.generate_all_missing') }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow text-sm" onclick="return confirm('Generate QR codes for ALL assets that currently lack one?');">
+                        <i class="fas fa-magic mr-1"></i> Generate Missing
+                    </button>
+                    
+                     <button type="button" onclick="openPrintModal()" class="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2 rounded-lg shadow flex items-center ml-auto inline-flex">
                         <i class="fas fa-print mr-2"></i> Print Selected
                     </button>
                 </div>
             </div>
+
             <div class="mt-6 bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <table class="min-w-full leading-normal">
                     <thead class="bg-gray-50 border-b border-gray-200">
@@ -114,7 +151,12 @@
                                 <div class="text-xs text-gray-500">{{ asset.brand }} {{ asset.model }}</div>
                             </td>
                             <td class="px-5 py-4 text-sm">
-                                <span class="px-2 py-1 rounded text-xs border {% if asset.status == 'Retired' %}bg-gray-100 border-gray-300 text-gray-600 {% elif asset.status == 'Allocated' %}bg-green-50 border-green-200 text-green-700 {% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">{{ asset.status }}</span>
+                                <span class="px-2 py-1 rounded text-xs border 
+                                    {% if asset.status == 'Retired' %}bg-gray-100 border-gray-300 text-gray-600
+                                    {% elif asset.status == 'Allocated' %}bg-green-50 border-green-200 text-green-700
+                                    {% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
+                                    {{ asset.status }}
+                                </span>
                             </td>
                             <td class="px-5 py-4 text-sm">
                                 {% if asset.qr_code_hash %}
@@ -142,6 +184,7 @@
     </div>
 </div>
 
+<!-- TAB 2: UNASSIGNED STICKERS -->
 <div id="view-unassigned" class="hidden">
     <div class="bg-white p-6 rounded-xl shadow-md mb-6 border border-blue-100">
         <h3 class="font-bold text-lg mb-2 text-blue-800">Create New Batch</h3>
@@ -154,10 +197,12 @@
             <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Generate Batch</button>
         </form>
     </div>
+
     <form action="{{ url_for('qr.print_stickers') }}" method="POST" target="_blank" id="qrFormUnassigned">
         <input type="hidden" name="start_position" id="form_start_pos_u">
         <input type="hidden" name="grid_columns" id="form_cols_u">
         <input type="hidden" name="grid_rows" id="form_rows_u">
+
         <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-lg">Available Stickers</h3>
@@ -170,6 +215,7 @@
                             <th class="px-5 py-3 text-left w-10"><input type="checkbox" onclick="toggleAllPregen(this)"></th>
                             <th class="px-5 py-3 text-left">Hash ID</th>
                             <th class="px-5 py-3 text-left">Created</th>
+                            <th class="px-5 py-3 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -178,6 +224,9 @@
                             <td class="px-5 py-3"><input type="checkbox" name="pregen_ids" value="{{ sticker.id }}"></td>
                             <td class="px-5 py-3 font-mono text-xs text-gray-600">{{ sticker.qr_hash[:16] }}...</td>
                             <td class="px-5 py-3 text-xs text-gray-500">{{ sticker.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td class="px-5 py-3 text-right">
+                                <button type="button" onclick="openLinkModal('{{ sticker.id }}')" class="text-xs bg-brand text-white px-2 py-1 rounded hover:bg-brand-dark">Link to Asset</button>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -193,6 +242,7 @@
 
 <script>
     let activeFormId = 'qrForm'; 
+
     function switchTab(tab) {
         document.getElementById('view-assigned').classList.add('hidden');
         document.getElementById('view-unassigned').classList.add('hidden');
@@ -200,10 +250,12 @@
         document.getElementById('tab-unassigned').classList.remove('border-b-2', 'border-brand', 'text-brand');
         document.getElementById('tab-assigned').classList.add('text-gray-500');
         document.getElementById('tab-unassigned').classList.add('text-gray-500');
+
         document.getElementById('view-' + tab).classList.remove('hidden');
         document.getElementById('tab-' + tab).classList.add('border-b-2', 'border-brand', 'text-brand');
         document.getElementById('tab-' + tab).classList.remove('text-gray-500');
     }
+
     function toggleAll(source) { checkboxes = document.getElementsByName('asset_ids'); for(var i=0, n=checkboxes.length;i<n;i++) checkboxes[i].checked = source.checked; }
     function toggleAllPregen(source) { checkboxes = document.getElementsByName('pregen_ids'); for(var i=0, n=checkboxes.length;i<n;i++) checkboxes[i].checked = source.checked; }
     function toggleQR(id) { fetch(`/qr/toggle/${id}`, {method: 'POST'}).then(res => res.json()).then(data => { if(data.success) location.reload(); }); }
@@ -212,6 +264,8 @@
         const status = document.querySelector('select[name="status_filter"]').value;
         window.location.href = `{{ url_for('qr.manage') }}?branch_id=${branch}&status=${status}`;
     }
+
+    // PRINT MODAL
     function openPrintModal(mode) {
         activeFormId = mode === 'unassigned' ? 'qrFormUnassigned' : 'qrForm';
         document.getElementById('printSettingsModal').classList.remove('hidden');
@@ -232,6 +286,15 @@
         }
         document.getElementById(activeFormId).submit();
         closePrintModal();
+    }
+
+    // MANUAL LINK MODAL
+    function openLinkModal(id) {
+        document.getElementById('link_pregen_id').value = id;
+        document.getElementById('manualLinkModal').classList.remove('hidden');
+    }
+    function closeLinkModal() {
+        document.getElementById('manualLinkModal').classList.add('hidden');
     }
 </script>
 {% endblock %}

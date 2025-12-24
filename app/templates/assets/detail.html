@@ -1,30 +1,26 @@
-<!-- Path: app/templates/assets/detail.html -->
 {% extends "base.html" %}
 {% block content %}
 
-<!-- --- QR MODAL (Hidden by default) --- -->
-<div id="qrViewModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center" onclick="this.classList.add('hidden')">
+<!-- QR MODAL -->
+<div id="qrViewModal" class="hidden fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center" onclick="closeModal('qrViewModal')">
     <div class="bg-white p-5 rounded-xl max-w-sm w-full text-center relative" onclick="event.stopPropagation()">
         <h3 class="font-bold text-lg mb-2">Asset QR Code</h3>
-        <div id="qrImageContainer" class="flex justify-center mb-4">
-            <!-- QR Image injected via JS -->
-        </div>
+        <div id="qrImageContainer" class="flex justify-center mb-4"></div>
         <p class="text-xs text-gray-500 mb-4">Hash: <span id="qrHashDisplay" class="font-mono"></span></p>
-        <button onclick="document.getElementById('qrViewModal').classList.add('hidden')" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 w-full">Close</button>
+        <button onclick="closeModal('qrViewModal')" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 w-full">Close</button>
     </div>
 </div>
 
-<!-- TOP HEADER -->
+<!-- HEADER -->
 <div class="flex justify-between items-center mb-6">
     <div class="flex items-center">
-        <a href="{{ url_for('assets.list_assets') }}" class="text-gray-500 hover:text-brand mr-4"><i class="fas fa-arrow-left"></i> Back</a>
-        <h2 class="text-2xl font-bold text-gray-800">Asset Details</h2>
+        <a href="{{ url_for('assets.list_assets') }}" class="text-gray-500 hover:text-brand mr-4 transition-colors"><i class="fas fa-arrow-left mr-1"></i> Back to List</a>
+        <h2 class="text-3xl font-bold text-gray-800">Asset Details</h2>
     </div>
     
-    <!-- View QR Button -->
     {% if asset.qr_code_hash %}
-    <button onclick="showQR('{{ asset.qr_code_hash }}')" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg shadow text-sm flex items-center">
-        <i class="fas fa-qrcode mr-2"></i> View QR
+    <button onclick="showQR('{{ asset.qr_code_hash }}')" class="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2 rounded-lg shadow-md text-sm flex items-center transition-transform hover:scale-105">
+        <i class="fas fa-qrcode mr-2"></i> View QR Code
     </button>
     {% endif %}
 </div>
@@ -34,66 +30,68 @@
     <!-- LEFT COLUMN: INFO & ACTIONS -->
     <div class="col-span-1 space-y-6">
         
-        <!-- ASSET INFO CARD -->
-        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 
-            {% if asset.status == 'Retired' %}border-gray-500 bg-gray-100
+        <!-- ASSET CARD -->
+        <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 
+            {% if asset.status == 'Retired' %}border-gray-500 bg-gray-50
             {% elif asset.status == 'In Stock' %}border-blue-500
             {% elif asset.status == 'Allocated' %}border-green-500
             {% elif asset.status == 'Repair' %}border-red-500
             {% else %}border-brand{% endif %}">
             
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start mb-4">
                 <div>
-                    <h2 class="text-3xl font-bold text-gray-800">{{ asset.brand }}</h2>
+                    <h2 class="text-3xl font-extrabold text-gray-800">{{ asset.brand }}</h2>
                     <div class="text-lg text-gray-600 font-medium">{{ asset.model }}</div>
                 </div>
                 <div class="text-right">
-                    <div class="text-xs text-gray-400 uppercase tracking-wider">Status</div>
-                    <div class="font-bold text-lg 
-                        {% if asset.status == 'Retired' %}text-gray-600
-                        {% elif asset.status == 'Repair' %}text-red-600
-                        {% else %}text-brand{% endif %}">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider font-bold">Status</div>
+                    <span class="inline-block mt-1 px-3 py-1 rounded-full text-sm font-bold
+                        {% if asset.status == 'Retired' %}bg-gray-200 text-gray-700
+                        {% elif asset.status == 'In Stock' %}bg-blue-100 text-blue-800
+                        {% elif asset.status == 'Allocated' %}bg-green-100 text-green-800
+                        {% elif asset.status == 'Repair' %}bg-red-100 text-red-800
+                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
                         {{ asset.status }}
-                    </div>
+                    </span>
                 </div>
             </div>
-            <div class="mt-6 p-3 bg-white bg-opacity-60 rounded-lg border border-gray-200">
-                <div class="text-xs text-gray-500 uppercase">Serial Number</div>
-                <div class="font-mono text-lg font-bold tracking-widest">{{ asset.serial_number }}</div>
+            
+            <div class="bg-gray-100 bg-opacity-70 rounded-lg p-3 border border-gray-200 mb-4">
+                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Serial Number</div>
+                <div class="font-mono text-xl font-bold tracking-widest text-gray-800">{{ asset.serial_number }}</div>
             </div>
-            <div class="mt-3 text-sm text-gray-600">
-                <div class="flex items-center mb-1">
-                    <i class="fas fa-map-marker-alt text-gray-400 mr-2 w-4"></i>
-                    <span>{{ asset.branch.name if asset.branch else 'Transit/Unknown' }}</span>
+            
+            <div class="space-y-2 text-sm text-gray-700">
+                <div class="flex items-center">
+                    <div class="w-8 flex justify-center"><i class="fas fa-map-marker-alt text-gray-400"></i></div>
+                    <span class="font-medium">{{ asset.branch.name if asset.branch else 'Transit/Unknown' }}</span>
                 </div>
                 {% if asset.holder %}
-                <div class="flex items-center font-bold text-gray-800">
-                    <i class="fas fa-user text-gray-400 mr-2 w-4"></i>
-                    <span>{{ asset.holder.name }} ({{ asset.holder.emp_id }})</span>
+                <div class="flex items-center">
+                    <div class="w-8 flex justify-center"><i class="fas fa-user text-gray-400"></i></div>
+                    <span class="font-bold text-gray-800">{{ asset.holder.name }}</span>
+                    <span class="text-gray-500 ml-2">({{ asset.holder.emp_id }})</span>
                 </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- ADMIN ONLY ZONE: QR MANAGEMENT -->
+        <!-- ADMIN ZONE -->
         {% if current_user.email == 'admin@company.com' %}
-        <div class="bg-red-50 p-6 rounded-xl shadow-md border border-red-100">
-            <h3 class="font-bold text-red-800 text-sm uppercase mb-4 flex items-center"><i class="fas fa-lock mr-2"></i> Admin Zone</h3>
+        <div class="bg-red-50 p-5 rounded-xl shadow-inner border border-red-100">
+            <h3 class="font-bold text-red-800 text-xs uppercase mb-3 flex items-center tracking-wider"><i class="fas fa-shield-alt mr-2"></i> Admin Controls</h3>
             
-            <!-- Reset Hash -->
-            <form action="{{ url_for('admin.reset_qr_hash', asset_id=asset.id) }}" method="POST" onsubmit="return confirm('WARNING: This will invalidate the existing printed sticker. Proceed?');" class="mb-4">
-                <button class="w-full text-left flex justify-between items-center bg-white border border-red-200 p-3 rounded hover:bg-red-100 transition-colors">
-                    <span class="text-sm text-red-700">Regenerate Hash (Security Reset)</span>
-                    <i class="fas fa-sync text-red-400"></i>
+            <form action="{{ url_for('admin.reset_qr_hash', asset_id=asset.id) }}" method="POST" onsubmit="return confirm('WARNING: This will invalidate the printed sticker. Proceed?');" class="mb-3">
+                <button class="w-full text-left flex justify-between items-center bg-white border border-red-200 p-2 rounded hover:bg-red-100 transition-colors shadow-sm">
+                    <span class="text-xs text-red-700 font-bold">Regenerate QR Hash</span>
+                    <i class="fas fa-sync text-red-400 text-xs"></i>
                 </button>
             </form>
 
-            <!-- Reassign -->
             <form action="{{ url_for('admin.reassign_qr', asset_id=asset.id) }}" method="POST" onsubmit="return confirm('Move this QR to another asset?');">
-                <label class="text-xs text-red-600 font-bold mb-1 block">Move Sticker To (Target Serial):</label>
                 <div class="flex gap-2">
-                    <input type="text" name="target_serial" placeholder="Enter Serial No." class="w-full border p-2 rounded text-sm" required>
-                    <button class="bg-red-600 text-white px-3 rounded hover:bg-red-700 text-sm">Move</button>
+                    <input type="text" name="target_serial" placeholder="Target Serial No." class="w-full border p-2 rounded text-xs focus:ring-red-500" required>
+                    <button class="bg-red-600 text-white px-3 rounded hover:bg-red-700 text-xs font-bold shadow-sm">Move</button>
                 </div>
             </form>
         </div>
@@ -101,167 +99,178 @@
         
         <!-- ACTION PANEL -->
         {% if asset.status != 'Retired' %}
-        <div class="bg-white p-6 rounded-xl shadow-md">
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
             <h3 class="font-bold text-lg mb-4 text-gray-700 border-b pb-2">Quick Actions</h3>
             
-            <!-- 1. ALLOCATE (Only if Stock) -->
+            <!-- ALLOCATE -->
             {% if asset.status == 'In Stock' %}
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
-                    <h4 class="text-xs font-bold uppercase text-brand mb-3"><i class="fas fa-user-plus mr-1"></i> Allocate</h4>
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200 mb-4 transition-all hover:shadow-md">
+                    <h4 class="text-xs font-bold uppercase text-green-800 mb-3 flex items-center"><i class="fas fa-user-plus mr-2"></i> Allocate to Person</h4>
                     <form action="{{ url_for('assets.allocate') }}" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="asset_id" value="{{ asset.id }}">
+                        
                         <div class="flex gap-2 mb-3">
-                            <select id="allocateEmpSelect" name="employee_id" class="w-full border p-2 rounded text-sm bg-white" required>
+                            <select id="allocateEmpSelect" name="employee_id" class="w-full border p-2 rounded text-sm bg-white focus:ring-2 focus:ring-green-500" required>
                                 <option value="" disabled selected>Select Employee</option>
                                 {% for emp in employees %}
                                 <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.emp_id }})</option>
                                 {% endfor %}
                             </select>
-                            <button type="button" onclick="document.getElementById('addEmployeeModal').classList.remove('hidden')" class="bg-green-600 text-white px-3 rounded hover:bg-green-700 shadow">+</button>
+                            <!-- Plus Button calls openModal -->
+                            <button type="button" onclick="openModal('addEmployeeModal')" class="bg-green-600 text-white px-3 rounded hover:bg-green-700 shadow-sm transition-colors" title="Add New Employee">+</button>
                         </div>
-                        <input type="file" name="document" class="w-full text-xs mb-3">
-                        <button class="w-full bg-brand hover:bg-brand-dark text-white py-2 rounded text-sm font-medium transition-all shadow-md shadow-orange-200">Confirm Allocation</button>
+                        
+                        <input type="file" name="document" class="w-full text-xs text-gray-500 mb-3 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-green-100 file:text-green-700 hover:file:bg-green-200">
+                        <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5">Confirm Allocation</button>
                     </form>
                 </div>
 
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
-                    <h4 class="text-xs font-bold uppercase text-blue-600 mb-3"><i class="fas fa-truck mr-1"></i> Transfer Branch</h4>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4 transition-all hover:shadow-md">
+                    <h4 class="text-xs font-bold uppercase text-blue-800 mb-3 flex items-center"><i class="fas fa-truck mr-2"></i> Transfer Branch</h4>
                     <form action="{{ url_for('assets.transfer') }}" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="asset_id" value="{{ asset.id }}">
-                        <select name="branch_id" class="w-full border p-2 rounded text-sm mb-2 bg-white" required>
+                        <select name="branch_id" class="w-full border p-2 rounded text-sm mb-2 bg-white focus:ring-2 focus:ring-blue-500" required>
                             <option value="" disabled selected>Destination Branch</option>
                             {% for b in branches %}
                             <option value="{{ b.id }}">{{ b.name }}</option>
                             {% endfor %}
                         </select>
-                        <input type="text" name="courier" placeholder="Courier Tracking No." class="border p-2 rounded w-full text-sm mb-2">
-                        <input type="text" name="remarks" placeholder="Remarks (Optional)" class="border p-2 rounded w-full text-sm mb-2">
-                        <input type="file" name="document" class="w-full text-xs mb-3">
-                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-all">Initiate Transfer</button>
+                        <input type="text" name="courier" placeholder="Courier Tracking No." class="border p-2 rounded w-full text-sm mb-2 focus:ring-2 focus:ring-blue-500">
+                        <input type="text" name="remarks" placeholder="Remarks (Optional)" class="border p-2 rounded w-full text-sm mb-2 focus:ring-2 focus:ring-blue-500">
+                        <input type="file" name="document" class="w-full text-xs text-gray-500 mb-3 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5">Initiate Transfer</button>
                     </form>
                 </div>
             {% endif %}
 
-            <!-- 2. RETURN (Only if Allocated) -->
+            <!-- RETURN -->
             {% if asset.status == 'Allocated' %}
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
-                    <h4 class="text-xs font-bold uppercase text-brand mb-3"><i class="fas fa-undo mr-1"></i> Return Asset</h4>
+                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-4 transition-all hover:shadow-md">
+                    <h4 class="text-xs font-bold uppercase text-yellow-800 mb-3 flex items-center"><i class="fas fa-undo mr-2"></i> Return Asset</h4>
                     <form action="{{ url_for('assets.return_asset') }}" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="asset_id" value="{{ asset.id }}">
                         <input type="text" name="branch_id" value="{{ asset.current_branch_id }}" hidden>
-                        <div class="mb-3 text-sm">
-                            Currently with: <strong>{{ asset.holder.name }}</strong><br>
-                            Return to: <strong>{{ asset.branch.name }}</strong>
+                        <div class="mb-3 text-sm bg-white p-2 rounded border border-yellow-100">
+                            Returning to stock at: <strong>{{ asset.branch.name }}</strong>
                         </div>
-                        <input type="text" name="remarks" placeholder="Remarks (e.g., Screen damaged?)" class="border p-2 rounded w-full text-sm mb-2">
-                        <input type="file" name="document" class="w-full text-xs mb-3">
-                        <button class="w-full bg-brand hover:bg-brand-dark text-white py-2 rounded text-sm font-medium shadow-md">Return to Stock</button>
+                        <input type="text" name="remarks" placeholder="Remarks (e.g., Screen damaged?)" class="border p-2 rounded w-full text-sm mb-2 focus:ring-2 focus:ring-yellow-500">
+                        <input type="file" name="document" class="w-full text-xs text-gray-500 mb-3 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200">
+                        <button class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5">Return to Stock</button>
                     </form>
                 </div>
             {% endif %}
 
-            <!-- 3. START REPAIR (Active for Stock & Allocated) -->
+            <!-- REPAIR -->
             {% if asset.status in ['In Stock', 'Allocated'] %}
-                <div class="bg-red-50 p-4 rounded-lg border border-red-200 mb-4">
-                    <h4 class="text-xs font-bold uppercase text-red-700 mb-3"><i class="fas fa-tools mr-1"></i> Maintenance</h4>
+                <div class="bg-red-50 p-4 rounded-lg border border-red-200 mb-4 transition-all hover:shadow-md">
+                    <h4 class="text-xs font-bold uppercase text-red-800 mb-3 flex items-center"><i class="fas fa-tools mr-2"></i> Maintenance</h4>
                     <form action="{{ url_for('assets.repair') }}" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="asset_id" value="{{ asset.id }}">
-                        <input type="text" name="notes" placeholder="Issue Description (Required)" class="border p-2 rounded w-full text-sm mb-3 bg-white" required>
-                        <input type="file" name="document" class="w-full text-xs mb-3">
-                        <button class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm font-medium shadow-md">Send to Repair</button>
+                        <input type="text" name="notes" placeholder="Issue Description (Required)" class="border p-2 rounded w-full text-sm mb-2 bg-white focus:ring-2 focus:ring-red-500" required>
+                        <input type="file" name="document" class="w-full text-xs text-gray-500 mb-3 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-red-100 file:text-red-700 hover:file:bg-red-200">
+                        <button class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5">Send to Repair</button>
                     </form>
                 </div>
             {% endif %}
 
-            <!-- 4. END REPAIR (Active when In Repair) -->
+            <!-- COMPLETE REPAIR -->
             {% if asset.status == 'Repair' %}
-                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <h4 class="text-xs font-bold uppercase text-green-700 mb-3"><i class="fas fa-check-circle mr-1"></i> Repair Status</h4>
-                    
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200 mb-4 transition-all hover:shadow-md">
+                    <h4 class="text-xs font-bold uppercase text-green-800 mb-3 flex items-center"><i class="fas fa-check-circle mr-2"></i> Repair Status</h4>
                     {% if asset.holder %}
-                        <div class="text-sm text-blue-700 mb-3 font-semibold bg-blue-50 p-2 rounded border border-blue-100">
-                            <i class="fas fa-user mr-1"></i> Owned by: {{ asset.holder.name }}
+                        <div class="text-xs text-blue-800 mb-3 font-semibold bg-blue-50 p-2 rounded border border-blue-100">
+                            Owned by: {{ asset.holder.name }} (Will restore allocation)
                         </div>
-                        <div class="text-sm text-gray-600 mb-3 italic">Completing repair will mark as <strong>Allocated</strong> to {{ asset.holder.name }}.</div>
                     {% else %}
-                        <div class="text-sm text-gray-600 mb-3 italic">Completing repair will return to <strong>Stock</strong>.</div>
+                        <div class="text-xs text-gray-600 mb-3 italic bg-white p-2 rounded border">Will return to Stock.</div>
                     {% endif %}
-                    
                     <form action="{{ url_for('assets.complete_repair') }}" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="asset_id" value="{{ asset.id }}">
-                        <input type="text" name="notes" placeholder="Repair Notes / Cost (Optional)" class="border p-2 rounded w-full text-sm mb-3 bg-white">
-                        <input type="file" name="document" class="w-full text-xs mb-3">
-                        <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-medium shadow-md">Complete & Restore</button>
+                        <input type="text" name="notes" placeholder="Repair Notes / Cost" class="border p-2 rounded w-full text-sm mb-2 bg-white focus:ring-2 focus:ring-green-500">
+                        <input type="file" name="document" class="w-full text-xs text-gray-500 mb-3 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-green-100 file:text-green-700 hover:file:bg-green-200">
+                        <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5">Complete & Restore</button>
                     </form>
                 </div>
             {% endif %}
 
-            <!-- 5. RECEIVE (Active In Transit) -->
+            <!-- RECEIVE -->
             {% if asset.status == 'In Transit' %}
-                <div class="text-center p-4 bg-yellow-50 rounded border border-yellow-200">
+                <div class="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200 transition-all hover:shadow-md">
                     <i class="fas fa-shipping-fast text-3xl text-yellow-500 mb-2"></i>
                     <p class="text-sm font-bold text-yellow-800 mb-3">Item is in transit</p>
                     <form action="{{ url_for('assets.receive') }}" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="asset_id" value="{{ asset.id }}">
-                        <input type="file" name="document" class="w-full text-xs mb-3">
-                        <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-medium">Confirm Receipt</button>
+                        <input type="file" name="document" class="w-full text-xs text-gray-500 mb-3 justify-center flex file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200">
+                        <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-bold transition-transform hover:-translate-y-0.5">Confirm Receipt</button>
                     </form>
                 </div>
             {% endif %}
             
-            <!-- 6. RETIRE / SCRAP (Only if NOT allocated) -->
+            <!-- RETIRE -->
             {% if asset.status in ['In Stock', 'Repair'] %}
-                <div class="bg-gray-100 p-4 rounded-lg border border-gray-300 mt-6">
-                    <h4 class="text-xs font-bold uppercase text-gray-600 mb-3"><i class="fas fa-trash-alt mr-1"></i> Retire / Scrap</h4>
-                    <form action="{{ url_for('assets.retire_asset') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('DANGER: This will remove the asset from active inventory permanently. Are you sure?');">
-                        <input type="hidden" name="asset_id" value="{{ asset.id }}">
-                        <input type="text" name="remarks" placeholder="Reason (Obsolete, Damaged...)" class="border p-2 rounded w-full text-sm mb-3 bg-white" required>
-                        <input type="file" name="document" class="w-full text-xs mb-3">
-                        <button class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded text-sm font-medium shadow-md">Retire Asset</button>
-                    </form>
+                <div class="mt-6 border-t pt-4">
+                    <button onclick="document.getElementById('retirePanel').classList.toggle('hidden')" class="text-xs text-gray-400 hover:text-red-500 font-bold uppercase flex items-center">
+                        <i class="fas fa-trash-alt mr-2"></i> Show Scrap Options
+                    </button>
+                    <div id="retirePanel" class="hidden bg-gray-100 p-4 rounded-lg border border-gray-300 mt-2">
+                        <h4 class="text-xs font-bold uppercase text-gray-600 mb-3">Retire / Scrap Asset</h4>
+                        <form action="{{ url_for('assets.retire_asset') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('DANGER: This will remove the asset from active inventory permanently. Are you sure?');">
+                            <input type="hidden" name="asset_id" value="{{ asset.id }}">
+                            <input type="text" name="remarks" placeholder="Reason (Obsolete, Damaged...)" class="border p-2 rounded w-full text-sm mb-2 bg-white" required>
+                            <input type="file" name="document" class="w-full text-xs text-gray-500 mb-3">
+                            <button class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded text-sm font-bold shadow-md">Permanently Retire</button>
+                        </form>
+                    </div>
                 </div>
             {% endif %}
         </div>
         {% endif %}
     </div>
-
+    
     <!-- RIGHT COLUMN: JOURNEY -->
-    <div class="col-span-1 lg:col-span-2 bg-white p-8 rounded-xl shadow-md">
-        <h3 class="text-xl font-bold mb-6 flex items-center">
-            <i class="fas fa-history text-brand mr-2"></i> Journey Log
+    <div class="col-span-1 lg:col-span-2 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+        <h3 class="text-xl font-bold mb-8 flex items-center text-gray-800">
+            <div class="bg-brand-light text-white p-2 rounded-lg mr-3 shadow-sm"><i class="fas fa-history"></i></div>
+            Asset Journey Log
         </h3>
-        <div class="border-l-2 border-gray-200 ml-3 space-y-10">
+        
+        <div class="relative border-l-2 border-gray-200 ml-4 space-y-12 pb-4">
             {% for event in asset.history %}
-            <div class="relative pl-8 group">
+            <div class="relative pl-10 group">
                 <!-- Timeline Dot -->
-                <div class="absolute -left-[9px] bg-white h-5 w-5 rounded-full border-4 border-brand group-hover:scale-125 transition-transform"></div>
+                <div class="absolute -left-[9px] top-1 bg-white h-5 w-5 rounded-full border-4 border-brand group-hover:scale-125 group-hover:border-brand-dark transition-all shadow-sm"></div>
                 
-                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-1">
-                    <span class="font-bold text-gray-800 text-lg">{{ event.action }}</span>
-                    <div class="flex items-center space-x-3">
-                        <!-- DOCUMENT BUTTON -->
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-2">
+                    <span class="font-bold text-gray-800 text-lg group-hover:text-brand transition-colors">{{ event.action }}</span>
+                    <div class="flex items-center space-x-3 mt-1 sm:mt-0">
                         {% if event.document_path %}
-                        <a href="{{ url_for('static', filename='uploads/' + event.document_path) }}" target="_blank" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 flex items-center transition-colors">
-                            <i class="fas fa-paperclip mr-1"></i> View Doc
+                        <a href="{{ url_for('static', filename='uploads/' + event.document_path) }}" target="_blank" class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1 rounded-full hover:bg-blue-100 flex items-center transition-colors font-bold">
+                            <i class="fas fa-paperclip mr-1"></i> Doc
                         </a>
                         {% endif %}
-                        <span class="text-xs text-gray-400 font-mono">{{ event.timestamp.strftime('%d %b %Y, %H:%M') }}</span>
+                        <span class="text-xs text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded">{{ event.timestamp.strftime('%d %b %Y, %H:%M') }}</span>
                     </div>
                 </div>
                 
-                <div class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><span class="text-xs text-gray-400 uppercase">From</span><br><span class="font-medium">{{ event.from_detail }}</span></div>
-                        <div><span class="text-xs text-gray-400 uppercase">To</span><br><span class="font-medium">{{ event.to_detail }}</span></div>
+                <div class="text-sm text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-xs text-gray-400 uppercase font-bold tracking-wide">From</span>
+                            <div class="font-medium text-gray-800">{{ event.from_detail }}</div>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-400 uppercase font-bold tracking-wide">To</span>
+                            <div class="font-medium text-gray-800">{{ event.to_detail }}</div>
+                        </div>
                     </div>
                     {% if event.courier_details %}
-                    <div class="mt-2 pt-2 border-t border-gray-200 flex items-center text-blue-600">
+                    <div class="mt-3 pt-3 border-t border-gray-200 flex items-center text-blue-600 font-medium text-xs">
                         <i class="fas fa-truck mr-2"></i> {{ event.courier_details }}
                     </div>
                     {% endif %}
                     {% if event.notes %}
-                    <div class="mt-2 pt-2 border-t border-gray-200 text-gray-500 italic text-xs">
-                        <i class="fas fa-comment-alt mr-1"></i> {{ event.notes }}
+                    <div class="mt-3 pt-3 border-t border-gray-200 text-gray-500 italic text-xs">
+                        <i class="fas fa-sticky-note mr-2 text-gray-400"></i> {{ event.notes }}
                     </div>
                     {% endif %}
                 </div>
@@ -271,48 +280,45 @@
     </div>
 </div>
 
-<!-- INLINE ADD EMPLOYEE MODAL -->
-<div id="addEmployeeModal" class="hidden fixed inset-0 bg-black bg-opacity-60 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+<!-- INLINE ADD EMPLOYEE MODAL (Hidden) -->
+<div id="addEmployeeModal" class="hidden fixed inset-0 bg-black bg-opacity-60 overflow-y-auto h-full w-full z-[60] flex items-center justify-center">
     <div class="relative p-6 border w-96 shadow-2xl rounded-xl bg-white">
-        <h3 class="text-lg font-bold mb-4 text-brand">Add New Employee</h3>
+        <h3 class="text-lg font-bold mb-4 text-brand border-b pb-2">Add New Employee</h3>
         <form id="quickAddEmployeeForm">
             <input class="w-full border p-2 mb-3 rounded focus:ring-brand" type="text" name="name" placeholder="Full Name" required>
             <input class="w-full border p-2 mb-3 rounded focus:ring-brand" type="text" name="emp_id" placeholder="Employee ID" required>
-            <select class="w-full border p-2 mb-4 rounded" name="branch_id" required>
+            <select class="w-full border p-2 mb-4 rounded bg-white" name="branch_id" required>
                 <option value="" disabled selected>Select Home Branch</option>
                 {% for b in branches %}
                 <option value="{{ b.id }}">{{ b.name }}</option>
                 {% endfor %}
             </select>
-            <div class="flex justify-end space-x-2">
-                <button type="button" onclick="document.getElementById('addEmployeeModal').classList.add('hidden')" class="px-3 py-2 bg-gray-200 rounded text-sm text-gray-700">Close</button>
-                <button type="submit" class="px-3 py-2 bg-brand text-white rounded text-sm shadow-md">Add & Select</button>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button type="button" onclick="closeModal('addEmployeeModal')" class="px-3 py-2 bg-gray-200 rounded text-sm text-gray-700 hover:bg-gray-300">Close</button>
+                <button type="submit" class="px-3 py-2 bg-brand text-white rounded text-sm shadow-md hover:bg-brand-dark">Add & Select</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- QR GENERATION SCRIPT -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
+    // --- MODAL UTILS ---
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // --- QR Logic ---
     function showQR(hash) {
-        const modal = document.getElementById('qrViewModal');
         const container = document.getElementById('qrImageContainer');
         const display = document.getElementById('qrHashDisplay');
-        
-        // Generate QR on the fly
-        container.innerHTML = ""; // Clear old
+        container.innerHTML = ""; 
         const url = window.location.origin + "/qr/scan/" + hash;
-        new QRCode(container, {
-            text: url,
-            width: 200,
-            height: 200
-        });
-        
+        new QRCode(container, { text: url, width: 200, height: 200 });
         display.innerText = hash.substring(0, 8) + "...";
-        modal.classList.remove('hidden');
+        openModal('qrViewModal');
     }
 
+    // --- JS Handler for Quick Add Employee ---
     document.getElementById('quickAddEmployeeForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -326,7 +332,7 @@
                 const option = new Option(data.name, data.id);
                 select.add(option);
                 select.value = data.id;
-                document.getElementById('addEmployeeModal').classList.add('hidden');
+                closeModal('addEmployeeModal');
                 this.reset();
             } else { alert(data.message); }
         });

@@ -1,6 +1,6 @@
 # Path: app/routes/auth.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, login_required
+from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models import User
 
@@ -34,6 +34,8 @@ def manage_users():
 @auth_bp.route('/users/add', methods=['POST'])
 @login_required
 def add_user():
+    # Only Admin can add users usually, or open to all? 
+    # Assuming open for now based on previous code, or restrict if needed.
     email = request.form.get('email')
     name = request.form.get('name')
     password = request.form.get('password')
@@ -46,4 +48,46 @@ def add_user():
         db.session.commit()
         flash('User added successfully', 'success')
     
+    return redirect(url_for('auth.manage_users'))
+
+# --- SUPER ADMIN ACTIONS ---
+
+@auth_bp.route('/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    # Strict Check: Only Super Admin
+    if current_user.email != 'admin@company.com':
+        flash('Access Denied: Only Super Admin can delete users.', 'error')
+        return redirect(url_for('auth.manage_users'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Self-deletion protection
+    if user.email == 'admin@company.com':
+        flash('Critical Error: You cannot delete the Super Admin account.', 'error')
+        return redirect(url_for('auth.manage_users'))
+        
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'User {user.name} has been deleted.', 'success')
+    return redirect(url_for('auth.manage_users'))
+
+@auth_bp.route('/users/update_password/<int:user_id>', methods=['POST'])
+@login_required
+def update_password(user_id):
+    # Strict Check: Only Super Admin
+    if current_user.email != 'admin@company.com':
+        flash('Access Denied: Only Super Admin can reset passwords.', 'error')
+        return redirect(url_for('auth.manage_users'))
+        
+    user = User.query.get_or_404(user_id)
+    new_password = request.form.get('new_password')
+    
+    if not new_password:
+        flash('Password cannot be empty.', 'error')
+        return redirect(url_for('auth.manage_users'))
+        
+    user.password = new_password # Use hashing in production!
+    db.session.commit()
+    flash(f'Password for {user.name} has been updated.', 'success')
     return redirect(url_for('auth.manage_users'))

@@ -1,13 +1,64 @@
-<!-- Path: app/templates/main/dashboard.html -->
 {% extends "base.html" %}
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-    {% for label, count in stats.items() %}
-    <div class="bg-white p-6 rounded-lg shadow border-t-4 border-indigo-500">
-        <h3 class="text-gray-500 text-sm uppercase">{{ label }}</h3>
-        <p class="text-3xl font-bold">{{ count }}</p>
+<h2 class="text-2xl font-bold text-gray-800 mb-6">System Overview</h2>
+
+<!-- ROW 1: HIGH LEVEL STATUS -->
+<div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white p-5 rounded-xl shadow border-l-4 border-indigo-500">
+        <h3 class="text-gray-400 text-xs font-bold uppercase">Total Assets</h3>
+        <p class="text-2xl font-bold text-gray-800">{{ stats.total }}</p>
     </div>
-    {% endfor %}
+    <div class="bg-white p-5 rounded-xl shadow border-l-4 border-green-500">
+        <h3 class="text-gray-400 text-xs font-bold uppercase">Total Allocated</h3>
+        <p class="text-2xl font-bold text-gray-800">{{ stats.allocated }}</p>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow border-l-4 border-blue-500">
+        <h3 class="text-gray-400 text-xs font-bold uppercase">Total In Stock</h3>
+        <p class="text-2xl font-bold text-gray-800">{{ stats.instock }}</p>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow border-l-4 border-yellow-500">
+        <h3 class="text-gray-400 text-xs font-bold uppercase">In Transit</h3>
+        <p class="text-2xl font-bold text-gray-800">{{ stats.transit }}</p>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow border-l-4 border-red-500">
+        <h3 class="text-gray-400 text-xs font-bold uppercase">In Repair</h3>
+        <p class="text-2xl font-bold text-gray-800">{{ stats.repair }}</p>
+    </div>
+</div>
+
+<!-- ROW 2: LOCATION BREAKDOWN -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <!-- HO Stats -->
+    <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100">
+        <h3 class="text-indigo-800 text-xs font-bold uppercase mb-2">Head Office (HO) Stock</h3>
+        <div class="flex items-end justify-between">
+            <span class="text-2xl font-bold text-indigo-900">{{ stats.ho_stock }}</span>
+            <i class="fas fa-building text-indigo-200 text-3xl"></i>
+        </div>
+    </div>
+    <div class="bg-indigo-50 p-5 rounded-xl border border-indigo-100">
+        <h3 class="text-indigo-800 text-xs font-bold uppercase mb-2">Head Office (HO) Allocated</h3>
+        <div class="flex items-end justify-between">
+            <span class="text-2xl font-bold text-indigo-900">{{ stats.ho_allocated }}</span>
+            <i class="fas fa-user-check text-indigo-200 text-3xl"></i>
+        </div>
+    </div>
+
+    <!-- Branch Stats -->
+    <div class="bg-orange-50 p-5 rounded-xl border border-orange-100">
+        <h3 class="text-orange-800 text-xs font-bold uppercase mb-2">Branches Stock</h3>
+        <div class="flex items-end justify-between">
+            <span class="text-2xl font-bold text-orange-900">{{ stats.branch_stock }}</span>
+            <i class="fas fa-code-branch text-orange-200 text-3xl"></i>
+        </div>
+    </div>
+    <div class="bg-orange-50 p-5 rounded-xl border border-orange-100">
+        <h3 class="text-orange-800 text-xs font-bold uppercase mb-2">Branches Allocated</h3>
+        <div class="flex items-end justify-between">
+            <span class="text-2xl font-bold text-orange-900">{{ stats.branch_allocated }}</span>
+            <i class="fas fa-users text-orange-200 text-3xl"></i>
+        </div>
+    </div>
 </div>
 
 <div class="bg-white rounded-lg shadow p-6">
@@ -17,10 +68,11 @@
         <li class="flex items-start space-x-3 text-sm">
             <div class="bg-gray-100 p-2 rounded-full"><i class="fas fa-history text-gray-500"></i></div>
             <div>
-                <span class="font-semibold text-indigo-600">{{ log.action }}</span>: 
-                Asset <span class="font-mono bg-gray-100 px-1">{{ log.asset.serial_number }}</span>
-                moved from <span class="font-semibold">{{ log.from_detail }}</span> to <span class="font-semibold">{{ log.to_detail }}</span>
-                <div class="text-gray-400 text-xs">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+                <span class="font-semibold text-brand">{{ log.action }}</span>: 
+                Asset <span class="font-mono bg-gray-100 px-1 rounded">{{ log.asset.serial_number }}</span>
+                <span class="text-gray-600">moved from</span> <span class="font-semibold">{{ log.from_detail }}</span> 
+                <span class="text-gray-600">to</span> <span class="font-semibold">{{ log.to_detail }}</span>
+                <div class="text-gray-400 text-xs mt-1">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
             </div>
         </li>
         {% endfor %}

@@ -1,4 +1,3 @@
-# Path: app/routes/assets.py
 import os
 import uuid
 import io
@@ -7,7 +6,7 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, jsonify, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import or_
+from sqlalchemy import or_, desc, asc
 from app.extensions import db
 from app.models import Asset, Branch, Employee, AssetHistory
 
@@ -21,13 +20,12 @@ def allowed_file(filename):
 def save_proof(file_obj):
     if file_obj and allowed_file(file_obj.filename):
         filename = secure_filename(file_obj.filename)
-        # Rename to avoid collisions: proof_<timestamp>_<uuid>.<ext>
         unique_name = f"proof_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}.{filename.rsplit('.', 1)[1].lower()}"
         file_obj.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_name))
         return unique_name
     return None
 
-# --- HELPER: Log History with Snapshot ---
+# --- HELPER: Log History ---
 def log_history(asset, action, from_d, to_d, courier="", notes="", doc_path=None):
     history = AssetHistory(
         asset_id=asset.id,
@@ -39,12 +37,18 @@ def log_history(asset, action, from_d, to_d, courier="", notes="", doc_path=None
         document_path=doc_path,
         created_by_user_id=current_user.id,
         timestamp=datetime.now(),
-        # SAVE SNAPSHOT OF NEW STATE
         post_action_status=asset.status,
         post_action_branch_id=asset.current_branch_id,
         post_action_employee_id=asset.current_employee_id
     )
     db.session.add(history)
+
+# --- NEW: API for Dynamic Dropdown ---
+@assets_bp.route('/get_employees/<int:branch_id>')
+@login_required
+def get_employees_by_branch(branch_id):
+    employees = Employee.query.filter_by(status='Active', branch_id=branch_id).all()
+    return jsonify([{'id': e.id, 'name': f"{e.name} ({e.emp_id})"} for e in employees])
 
 @assets_bp.route('/')
 @login_required
@@ -52,6 +56,10 @@ def list_assets():
     status_filter = request.args.get('status')
     branch_filter = request.args.get('branch_id')
     search = request.args.get('search')
+    
+    # Sorting Parameters
+    sort_by = request.args.get('sort', 'id')
+    order = request.args.get('order', 'desc')
     
     query = Asset.query.outerjoin(Branch, Asset.current_branch_id == Branch.id)\
                        .outerjoin(Employee, Asset.current_employee_id == Employee.id)
@@ -71,6 +79,25 @@ def list_assets():
                 Branch.name.ilike(search_term)
             )
         )
+    
+    # Sorting Logic
+    if sort_by == 'serial':
+        sort_col = Asset.serial_number
+    elif sort_by == 'model':
+        sort_col = Asset.model
+    elif sort_by == 'status':
+        sort_col = Asset.status
+    elif sort_by == 'branch':
+        sort_col = Branch.name
+    elif sort_by == 'holder':
+        sort_col = Employee.name
+    else:
+        sort_col = Asset.id
+
+    if order == 'asc':
+        query = query.order_by(asc(sort_col))
+    else:
+        query = query.order_by(desc(sort_col))
         
     assets = query.all()
     
@@ -86,7 +113,12 @@ def list_assets():
 def detail(asset_id):
     asset = Asset.query.get_or_404(asset_id)
     branches = Branch.query.all()
-    employees = Employee.query.filter_by(status='Active').all()
+    
+    if asset.current_branch_id:
+        employees = Employee.query.filter_by(status='Active', branch_id=asset.current_branch_id).all()
+    else:
+        employees = Employee.query.filter_by(status='Active').all()
+        
     return render_template('assets/detail.html', asset=asset, branches=branches, employees=employees)
 
 @assets_bp.route('/add', methods=['POST'])
@@ -97,7 +129,6 @@ def add():
     brand = request.form.get('brand')
     branch_id = request.form.get('branch_id')
     
-    # Handle File
     doc_file = request.files.get('document')
     doc_filename = save_proof(doc_file)
     
@@ -107,7 +138,7 @@ def add():
         current_branch_id=branch_id, purchase_date=datetime.now()
     )
     db.session.add(new_asset)
-    db.session.commit() # Commit first to get ID
+    db.session.commit()
     
     log_history(new_asset, "Purchase", "Vendor", f"Stock ({branch.name})", doc_path=doc_filename)
     db.session.commit()
@@ -137,8 +168,6 @@ def add_branch():
 def allocate():
     asset_id = request.form.get('asset_id')
     emp_id = request.form.get('employee_id')
-    
-    # Handle File
     doc_file = request.files.get('document')
     doc_filename = save_proof(doc_file)
 
@@ -287,12 +316,40 @@ def retire_asset():
 @login_required
 def export_csv():
     mode = request.args.get('mode', 'summary')
+    status_filter = request.args.get('status')
+    branch_filter = request.args.get('branch_id')
+    search = request.args.get('search')
+
+    query = Asset.query.outerjoin(Branch, Asset.current_branch_id == Branch.id)\
+                       .outerjoin(Employee, Asset.current_employee_id == Employee.id)
+
+    if status_filter and status_filter != 'undefined': 
+        query = query.filter(Asset.status == status_filter)
+    if branch_filter and branch_filter != 'undefined': 
+        query = query.filter(Asset.current_branch_id == branch_filter)
+    
+    if search and search != 'undefined':
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Asset.serial_number.ilike(search_term),
+                Asset.model.ilike(search_term),
+                Employee.name.ilike(search_term),
+                Branch.name.ilike(search_term)
+            )
+        )
+    
+    assets = query.all()
+
     si = io.StringIO()
     cw = csv.writer(si)
     
     if mode == 'detailed':
         cw.writerow(['Date', 'Serial', 'Brand', 'Model', 'Action', 'From', 'To', 'Courier', 'Remarks', 'Doc', 'User'])
-        history = AssetHistory.query.order_by(AssetHistory.timestamp.desc()).all()
+        filtered_ids = [a.id for a in assets]
+        history = AssetHistory.query.filter(AssetHistory.asset_id.in_(filtered_ids))\
+            .order_by(AssetHistory.timestamp.desc()).all()
+            
         for h in history:
             cw.writerow([
                 h.timestamp.strftime('%Y-%m-%d %H:%M'),
@@ -303,7 +360,6 @@ def export_csv():
             ])
     else:
         cw.writerow(['Serial', 'Brand', 'Model', 'Status', 'Current Branch', 'Current Holder', 'Emp ID', 'Allocation Date'])
-        assets = Asset.query.all()
         for a in assets:
             branch_name = a.branch.name if a.branch else "N/A"
             holder_name = "N/A"

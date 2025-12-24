@@ -1,7 +1,6 @@
-<!-- Path: app/templates/assets/_table_rows.html -->
 {% if not assets %}
 <tr>
-    <td colspan="6" class="px-5 py-8 text-center text-gray-500">
+    <td colspan="7" class="px-5 py-8 text-center text-gray-500">
         <i class="fas fa-box-open text-4xl mb-2 text-gray-300"></i><br>
         No assets found matching your filters.
     </td>
@@ -10,6 +9,9 @@
 
 {% for asset in assets %}
 <tr class="border-b hover:bg-orange-50 transition-all group">
+    <td class="px-5 py-4 text-sm text-gray-500 font-bold w-12 text-center bg-gray-50">
+        {{ loop.index }}
+    </td>
     <td class="px-5 py-4 text-sm font-mono font-bold text-brand-dark">
         <a href="{{ url_for('assets.detail', asset_id=asset.id) }}">{{ asset.serial_number }}</a>
     </td>
@@ -27,8 +29,10 @@
         </span>
     </td>
     <td class="px-5 py-4 text-sm text-gray-600">
-        <i class="fas fa-map-marker-alt text-gray-300 mr-1"></i> 
-        {{ asset.branch.name if asset.branch else 'Transit/Unknown' }}
+        <div class="flex items-center">
+            <i class="fas fa-map-marker-alt text-gray-300 mr-2"></i>
+            {{ asset.branch.name if asset.branch else 'Transit/Unknown' }}
+        </div>
     </td>
     <td class="px-5 py-4 text-sm">
         {% if asset.holder %}
@@ -39,7 +43,7 @@
                 {{ asset.holder.name }}
             </a>
         {% else %}
-            <span class="text-gray-400">-</span>
+            <span class="text-gray-400 italic text-xs">-</span>
         {% endif %}
     </td>
     <td class="px-5 py-4 text-sm text-right flex justify-end items-center space-x-2">
@@ -58,10 +62,11 @@
         {% endif %}
 
         {% if asset.status == 'In Stock' %}
-            <button onclick="openTransferModal('{{ asset.id }}', '{{ asset.serial_number }}')" class="bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white p-2 rounded transition-colors" title="Change Branch">
+            <button onclick="openTransferModal('{{ asset.id }}', '{{ asset.serial_number }}')" class="bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white p-2 rounded transition-colors shadow-sm" title="Change Branch">
                 <i class="fas fa-exchange-alt"></i>
             </button>
-            <button onclick="openAllocateModal('{{ asset.id }}', '{{ asset.serial_number }}')" class="bg-green-100 text-green-600 hover:bg-green-600 hover:text-white p-2 rounded transition-colors" title="Quick Allocate">
+            <!-- Pass branch_id -->
+            <button onclick="openAllocateModal('{{ asset.id }}', '{{ asset.serial_number }}', '{{ asset.current_branch_id }}')" class="bg-green-100 text-green-600 hover:bg-green-600 hover:text-white p-2 rounded transition-colors shadow-sm" title="Quick Allocate">
                 <i class="fas fa-user-plus"></i>
             </button>
         {% endif %}
